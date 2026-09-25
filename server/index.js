@@ -6,7 +6,7 @@ import chatRoutes from "./routes/chat.js";
 
 const app = express();
 const port = process.env.PORT || 8787;
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-6lzw.onrender.com")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app")
   .split(",")
   .map((o) => o.trim());
 
