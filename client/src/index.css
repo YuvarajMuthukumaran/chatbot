@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Inter", "Nunito", system-ui, sans-serif;
+  background: #0f1b2b;
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.font-scale-normal { font-size: 100%; }
+.font-scale-large { font-size: 112%; }
+.font-scale-xl { font-size: 125%; }
+
+/* Ambient animated gradient backdrop */
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 50% -10%, #16273a 0%, #0f1b2b 55%, #0b1420 100%);
+}
+
+.ambient-bg::before,
+.ambient-bg::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.ambient-bg::before {
+  width: 46vw;
+  height: 46vw;
+  top: -12vw;
+  left: -10vw;
+  background: radial-gradient(circle at 30% 30%, #43848c, transparent 70%);
+  animation: drift-a 22s ease-in-out infinite;
+}
+
+.ambient-bg::after {
+  width: 50vw;
+  height: 50vw;
+  bottom: -18vw;
+  right: -14vw;
+  background: radial-gradient(circle at 60% 60%, #8a71b4, transparent 70%);
+  animation: drift-b 26s ease-in-out infinite;
+}
+
+.ambient-blob-3 {
+  position: absolute;
+  top: 30%;
+  right: 8%;
+  width: 32vw;
+  height: 32vw;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #688c6a, transparent 70%);
+  filter: blur(100px);
+  opacity: 0.35;
+  animation: drift-c 30s ease-in-out infinite;
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, 8vw) scale(1.15); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-5vw, -6vw) scale(1.1); }
+}
+
+@keyframes drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-4vw, 5vw) scale(1.2); }
+}
+
+/* Glassmorphism surfaces */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.depth-shadow {
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(15, 27, 43, 0.35),
+    0 24px 64px rgba(15, 27, 43, 0.25);
+}
+
+.text-glow {
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.25);
+}

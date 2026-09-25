@@ -1,0 +1,18 @@
+{
+  "name": "yuvaraj-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "YUVARAJ backend - proxies OpenRouter LLM calls for Tulasi Health Care's mental health companion",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "openai": "^4.104.0"
+  }
+}
