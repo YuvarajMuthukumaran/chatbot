@@ -1,8 +1,14 @@
 const SESSION_KEY = "yuvaraj.sessionId";
 const PROFILE_KEY = "yuvaraj.profile";
 
+// In local dev, Vite's dev server proxies "/api" to the backend (see
+// vite.config.js) so a relative path works. A static production build has
+// no such proxy, so it needs the deployed backend's absolute URL instead —
+// set VITE_API_URL at build time (e.g. https://your-api.onrender.com).
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export async function startSession(profile) {
-  const res = await fetch("/api/session", {
+  const res = await fetch(`${API_BASE}/api/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile || {}),
@@ -37,7 +43,7 @@ export function clearLocalSession() {
  */
 export async function sendMessageStream({ sessionId, message, onChunk, onDone, onError }) {
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, message }),
