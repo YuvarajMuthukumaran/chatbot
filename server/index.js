@@ -6,7 +6,7 @@ import chatRoutes from "./routes/chat.js";
 
 const app = express();
 const port = process.env.PORT || 8787;
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-6lzw.onrender.com")
   .split(",")
   .map((o) => o.trim());
 
