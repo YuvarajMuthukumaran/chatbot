@@ -152,11 +152,11 @@ export default function Chat() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="glass depth-shadow relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl"
       >
-        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
           <PresenceOrb active={streaming} className="h-9 w-9 shrink-0 sm:h-12 sm:w-12" />
           <div>
-            <div className="font-semibold text-white">YUVARAJ</div>
-            <div className="text-xs text-teal-200/70">
+            <div className="font-semibold text-blue-900">YUVARAJ</div>
+            <div className="text-xs text-blue-600/70">
               {streaming ? "Thinking with you…" : "Here to listen"}
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function Chat() {
 
         {connectionError && (
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-5" role="alert">
-            <p className="text-sm text-red-300">
+            <p className="text-sm text-crisis-dark">
               I'm having trouble connecting. If this keeps happening, Tulasi Health Care's team is
               reachable directly too.
             </p>
@@ -181,7 +181,7 @@ export default function Chat() {
                 type="button"
                 onClick={handleRetry}
                 disabled={streaming}
-                className="shrink-0 rounded-full border border-red-400/40 px-3 py-1 text-sm font-semibold text-red-200 hover:bg-red-400/10 disabled:opacity-50"
+                className="shrink-0 rounded-full border border-crisis/30 px-3 py-1 text-sm font-semibold text-crisis-dark hover:bg-crisis/5 disabled:opacity-50"
               >
                 Retry
               </button>
@@ -191,7 +191,7 @@ export default function Chat() {
 
         <form
           onSubmit={handleSend}
-          className="flex shrink-0 items-end gap-2 border-t border-white/10 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4"
+          className="flex shrink-0 items-end gap-2 border-t border-slate-100 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4"
         >
           <label htmlFor="chat-input" className="sr-only">
             Message YUVARAJ
@@ -206,7 +206,7 @@ export default function Chat() {
             rows={1}
             placeholder={sessionId ? "Share what's on your mind…" : "Getting things ready…"}
             disabled={!sessionId}
-            className="min-w-0 flex-1 resize-none rounded-2xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-base text-slate-100 placeholder:text-slate-400 focus:border-teal-400/60 focus:outline-none focus:ring-2 focus:ring-teal-400/30 sm:text-[0.95em]"
+            className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-[0.95em]"
           />
           <motion.button
             type="submit"
@@ -215,10 +215,13 @@ export default function Chat() {
             whileTap={{ scale: 0.94 }}
             animate={!streaming && input.trim() ? { scale: [1, 1.04, 1] } : {}}
             transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-            className="shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-lavender-500 px-4 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/40 transition-opacity disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-700 text-white shadow-md shadow-blue-900/20 transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Send message"
           >
-            Send
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
           </motion.button>
         </form>
       </motion.div>

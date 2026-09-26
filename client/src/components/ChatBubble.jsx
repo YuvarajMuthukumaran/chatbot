@@ -9,7 +9,7 @@ const markdownComponents = {
   li: ({ children }) => <li>{children}</li>,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-teal-400 underline-offset-2">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-blue-400 underline-offset-2">
       {children}
     </a>
   ),
@@ -33,10 +33,10 @@ export default function ChatBubble({ role, text, crisis }) {
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-[0.95em] leading-relaxed ${
           isUser
-            ? "whitespace-pre-wrap bg-gradient-to-br from-teal-500 to-lavender-600 text-white shadow-lg shadow-teal-900/30"
+            ? "whitespace-pre-wrap bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-900/15"
             : crisis
-              ? "border border-crisis/40 bg-crisis/10 text-red-50 shadow-lg shadow-crisis/20 backdrop-blur-xl"
-              : "glass-light text-slate-800 shadow-lg shadow-black/10"
+              ? "border border-crisis/30 bg-crisis/5 text-red-900 shadow-sm"
+              : "border border-blue-100 bg-blue-50 text-slate-800 shadow-sm"
         }`}
       >
         {isUser ? (

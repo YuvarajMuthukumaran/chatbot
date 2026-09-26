@@ -27,8 +27,8 @@ export default function FontSizeControl() {
           aria-label={`Text size ${label}`}
           className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
             index === i
-              ? "bg-teal-400/90 text-slate-900"
-              : "bg-white/10 text-teal-100 hover:bg-white/20"
+              ? "bg-blue-700 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
           }`}
         >
           {label}

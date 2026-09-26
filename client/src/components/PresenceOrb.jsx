@@ -24,14 +24,14 @@ function Orb({ active }) {
       <Sphere ref={meshRef} args={[1, 96, 96]}>
         <MeshDistortMaterial
           ref={materialRef}
-          color="#5fa0a7"
+          color="#3B82F6"
           attach="material"
           distort={0.35}
           speed={1}
           roughness={0.15}
           metalness={0.1}
-          emissive="#8a71b4"
-          emissiveIntensity={0.25}
+          emissive="#1D4ED8"
+          emissiveIntensity={0.2}
         />
       </Sphere>
     </Float>
@@ -42,9 +42,9 @@ export default function PresenceOrb({ active = false, className = "" }) {
   return (
     <div className={className} aria-hidden="true">
       <Canvas camera={{ position: [0, 0, 3.2], fov: 40 }} dpr={[1, 1.5]}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[2, 2, 3]} intensity={1.1} color="#f6f0ff" />
-        <directionalLight position={[-2, -1, -2]} intensity={0.4} color="#43848c" />
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[2, 2, 3]} intensity={1.1} color="#ffffff" />
+        <directionalLight position={[-2, -1, -2]} intensity={0.35} color="#93c5fd" />
         <Suspense fallback={null}>
           <Orb active={active} />
         </Suspense>

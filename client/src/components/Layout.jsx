@@ -6,7 +6,7 @@ import logo from "../assets/tulasi-logo.webp";
 
 export default function Layout() {
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden text-slate-100">
+    <div className="relative flex h-dvh flex-col overflow-hidden text-slate-800">
       <div className="ambient-bg">
         <div className="ambient-blob-3" />
       </div>
@@ -28,13 +28,13 @@ export default function Layout() {
           <img
             src={logo}
             alt="Tulasi Health Care"
-            className="h-8 w-8 rounded-xl object-cover shadow-lg shadow-black/30 sm:h-11 sm:w-11"
+            className="h-8 w-8 rounded-xl object-cover shadow-sm shadow-blue-900/10 sm:h-11 sm:w-11"
           />
           <div className="leading-tight">
-            <div className="text-sm font-bold tracking-tight text-white text-glow sm:text-base">
+            <div className="text-sm font-bold tracking-tight text-blue-900 sm:text-base">
               YUVARAJ
             </div>
-            <div className="text-[9px] font-medium uppercase tracking-wider text-teal-200/80 sm:text-[11px]">
+            <div className="text-[9px] font-medium uppercase tracking-wider text-blue-600/80 sm:text-[11px]">
               A Tulasi Health Care Initiative
             </div>
           </div>
@@ -47,12 +47,12 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="relative z-10 shrink-0 px-3 py-1.5 text-center text-[10px] leading-snug text-slate-400/80 sm:py-2 sm:text-xs xl:pr-56">
+      <footer className="relative z-10 shrink-0 px-3 py-1.5 text-center text-[10px] leading-snug text-slate-500 sm:py-2 sm:text-xs xl:pr-56">
         <p className="mx-auto max-w-2xl">
           <span className="xl:hidden">Not a therapist, doctor, or emergency service.</span>
           <span className="hidden xl:inline">
             Not a therapist or emergency service. If you are in immediate danger, use the{" "}
-            <span className="font-semibold text-slate-300">Get Immediate Help</span> button or contact
+            <span className="font-semibold text-slate-700">Get Immediate Help</span> button or contact
             local emergency services.
           </span>
         </p>

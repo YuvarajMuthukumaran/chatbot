@@ -8,7 +8,7 @@ html {
 
 body {
   font-family: "Inter", "Nunito", system-ui, sans-serif;
-  background: #0f1b2b;
+  background: #f8fafc;
   overflow-x: hidden;
 }
 
@@ -24,13 +24,13 @@ body {
 .font-scale-large { font-size: 112%; }
 .font-scale-xl { font-size: 125%; }
 
-/* Ambient animated gradient backdrop */
+/* Ambient animated backdrop — soft blue washes on a light page */
 .ambient-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: radial-gradient(120% 120% at 50% -10%, #16273a 0%, #0f1b2b 55%, #0b1420 100%);
+  background: radial-gradient(120% 120% at 50% -10%, #eef4fc 0%, #f8fafc 55%, #f8fafc 100%);
 }
 
 .ambient-bg::before,
@@ -39,16 +39,16 @@ body {
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
-  opacity: 0.55;
+  opacity: 0.4;
   will-change: transform;
 }
 
 .ambient-bg::before {
   width: 46vw;
   height: 46vw;
-  top: -12vw;
+  top: -14vw;
   left: -10vw;
-  background: radial-gradient(circle at 30% 30%, #43848c, transparent 70%);
+  background: radial-gradient(circle at 30% 30%, #bfdbfe, transparent 70%);
   animation: drift-a 22s ease-in-out infinite;
 }
 
@@ -57,7 +57,7 @@ body {
   height: 50vw;
   bottom: -18vw;
   right: -14vw;
-  background: radial-gradient(circle at 60% 60%, #8a71b4, transparent 70%);
+  background: radial-gradient(circle at 60% 60%, #dbeafe, transparent 70%);
   animation: drift-b 26s ease-in-out infinite;
 }
 
@@ -68,9 +68,9 @@ body {
   width: 32vw;
   height: 32vw;
   border-radius: 9999px;
-  background: radial-gradient(circle, #688c6a, transparent 70%);
+  background: radial-gradient(circle, #e0e7ff, transparent 70%);
   filter: blur(100px);
-  opacity: 0.35;
+  opacity: 0.3;
   animation: drift-c 30s ease-in-out infinite;
 }
 
@@ -89,28 +89,17 @@ body {
   50% { transform: translate(-4vw, 5vw) scale(1.2); }
 }
 
-/* Glassmorphism surfaces */
+/* Glassmorphism surfaces — light, frosted-white for the light theme */
 .glass {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.glass-light {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .depth-shadow {
   box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.08),
-    0 8px 24px rgba(15, 27, 43, 0.35),
-    0 24px 64px rgba(15, 27, 43, 0.25);
-}
-
-.text-glow {
-  text-shadow: 0 0 24px rgba(255, 255, 255, 0.25);
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.06),
+    0 24px 64px rgba(15, 23, 42, 0.05);
 }
