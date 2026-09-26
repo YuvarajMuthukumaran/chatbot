@@ -1,7 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { motion } from "framer-motion";
 import CrisisButton from "./CrisisButton.jsx";
-import FontSizeControl from "./FontSizeControl.jsx";
 import logo from "../assets/tulasi-logo.webp";
 
 export default function Layout() {
@@ -22,7 +21,7 @@ export default function Layout() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 sm:mx-6 sm:mt-4 sm:px-4 sm:py-2.5"
+        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center gap-2 rounded-2xl px-3 py-2 sm:mx-6 sm:mt-4 sm:px-4 sm:py-2.5"
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <img
@@ -39,8 +38,6 @@ export default function Layout() {
             </div>
           </div>
         </div>
-
-        <FontSizeControl />
       </motion.header>
 
       <main id="main-content" className="relative z-10 flex min-h-0 flex-1 flex-col">
