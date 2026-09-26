@@ -73,6 +73,15 @@ export function getDoctorsForSpecialties(tags, limit = 2) {
     doctor: d,
     score: d.specialties.filter((s) => tags.includes(s)).length,
   })).filter((x) => x.score > 0);
+
+  // Shuffle before the sort so doctors tied on score aren't always broken
+  // in DOCTORS array order — otherwise whoever happens to have the widest
+  // specialty list near the top of the file would win almost every match,
+  // and the same one or two names would show up for nearly every condition.
+  for (let i = scored.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [scored[i], scored[j]] = [scored[j], scored[i]];
+  }
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, limit).map((x) => x.doctor);
 }
