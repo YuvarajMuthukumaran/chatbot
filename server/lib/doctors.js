@@ -72,7 +72,7 @@ export function matchSpecialties(text) {
 // feeling. Only recommend when someone is explicitly asking for
 // professional help, or showing real distress/severity about it.
 const HELP_SEEKING_PATTERN =
-  /\b(doctor|psychiatrist|psychologist|therapist|specialist|counsell?or|professional help|see someone|talk to someone|book(?:ing)?|appointment)\b/i;
+  /\b(doctors?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i;
 
 const CONCERN_PATTERN =
   /\bcan'?t (?:take|handle|cope|stop|sleep|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do (?:anymore)?|really (?:struggling|bad|hard)|\bscares? me\b|\bi'?m worried\b/i;
