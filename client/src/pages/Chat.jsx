@@ -8,6 +8,7 @@ import {
   getStoredSessionId,
   getStoredProfile,
   sendMessageStream,
+  fetchCrisisResources,
 } from "../lib/api.js";
 import { storeCrisisResources } from "../lib/crisisResources.js";
 
@@ -59,6 +60,13 @@ export default function Chat() {
       })
       .catch(() => setConnectionError(true));
   }, [sessionId]);
+
+  // Crisis resources are safety-critical and can change independent of any
+  // one user's session — refresh them on every load rather than trusting
+  // whatever got cached when a (possibly long-lived) session first started.
+  useEffect(() => {
+    fetchCrisisResources().then(storeCrisisResources).catch(() => {});
+  }, []);
 
   const runSend = async (text, activeSessionId = sessionId, isRetry = false) => {
     setStreaming(true);

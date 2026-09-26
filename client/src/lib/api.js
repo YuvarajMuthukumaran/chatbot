@@ -32,6 +32,12 @@ export function getStoredProfile() {
   }
 }
 
+export async function fetchCrisisResources() {
+  const res = await fetch(`${API_BASE}/api/crisis-resources`);
+  if (!res.ok) throw new Error("Could not load crisis resources");
+  return res.json();
+}
+
 export function clearLocalSession() {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(PROFILE_KEY);
