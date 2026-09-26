@@ -93,5 +93,5 @@ export function buildDoctorContextNote(doctors) {
   return `Context only, not something to act on every time: based on what the user just shared, these Tulasi Health Care specialists' focus areas seem relevant —
 ${lines}
 
-Only mention this if it fits naturally in your reply right now; don't force it in, and don't present it as a diagnosis. If you do bring it up, phrase it as an option ("if it'd help, one of our specialists focuses on exactly this — want me to share how to book?") rather than an instruction. It's completely fine to skip mentioning it if it doesn't fit the moment. Never name a doctor who isn't listed above.`;
+Only mention this if it fits naturally in your reply right now; don't force it in, and don't present it as a diagnosis. If you do bring it up, phrase it as an option ("if it'd help, one of our specialists focuses on exactly this — want their contact number?") rather than an instruction. It's completely fine to skip mentioning it if it doesn't fit the moment. Never name a doctor who isn't listed above, and never describe a specific booking process — offer the contact number, not booking steps.`;
 }
