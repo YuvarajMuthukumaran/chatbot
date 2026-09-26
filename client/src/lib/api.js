@@ -91,6 +91,7 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
           if (parsed.text) onChunk(parsed.text);
           if (parsed.crisis) meta.crisis = true;
           if (parsed.error) meta.error = true;
+          if (parsed.doctors) meta.doctors = parsed.doctors;
         } catch {
           // ignore malformed chunk
         }

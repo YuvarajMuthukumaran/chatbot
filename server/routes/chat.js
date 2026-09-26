@@ -100,6 +100,9 @@ router.post("/chat", async (req, res) => {
   appendTurn(sessionId, "user", message);
   appendTurn(sessionId, "model", result.text);
   if (matchedTags.length) markSpecialtiesSuggested(sessionId, matchedTags);
+  if (matchedDoctors.length) {
+    send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
+  }
   finish();
 });
 

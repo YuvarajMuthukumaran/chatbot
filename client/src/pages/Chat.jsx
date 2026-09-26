@@ -94,7 +94,7 @@ export default function Chat() {
     const finalizeMessage = () => {
       setMessages((prev) => {
         const next = [...prev];
-        next[next.length - 1] = { role: "model", text: fullText, crisis: doneMeta?.crisis };
+        next[next.length - 1] = { role: "model", text: fullText, crisis: doneMeta?.crisis, doctors: doneMeta?.doctors };
         return next;
       });
       setStreaming(false);
@@ -225,7 +225,7 @@ export default function Chat() {
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
           {messages.map((m, i) => (
-            <ChatBubble key={i} role={m.role} text={m.text} crisis={m.crisis} />
+            <ChatBubble key={i} role={m.role} text={m.text} crisis={m.crisis} doctors={m.doctors} />
           ))}
           {streaming && messages[messages.length - 1]?.text === "" && <TypingIndicator />}
           <div ref={bottomRef} />
