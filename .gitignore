@@ -3,5 +3,6 @@ dist/
 .env.*
 !.env.example
 !server/.env
+!client/.env.production
 *.log
 .DS_Store
