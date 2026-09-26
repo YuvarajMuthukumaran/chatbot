@@ -71,9 +71,18 @@ router.post("/chat", async (req, res) => {
   // surfaced this session, so it's mentioned once, not every relevant turn.
   // Also gated on wantsDoctorHelp — merely naming a feeling ("I feel
   // anxious") shouldn't trigger a referral; only explicit help-seeking or
-  // real distress/severity should.
+  // real distress/severity should. That gate looks at the current message
+  // only (the concern has to be happening now), but which specialty it
+  // matches is looked up across the recent conversation too — someone
+  // saying "I don't know what to do anymore" without repeating "anxiety"
+  // should still surface an anxiety specialist if that's what they named
+  // a couple turns earlier.
+  const recentContext = session.history
+    .slice(-8)
+    .map((turn) => turn.text)
+    .join(" ");
   const matchedTags = wantsDoctorHelp(message)
-    ? matchSpecialties(message).filter((tag) => !session.suggestedSpecialties.has(tag))
+    ? matchSpecialties(`${recentContext} ${message}`).filter((tag) => !session.suggestedSpecialties.has(tag))
     : [];
   const matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
   const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
