@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
-import PresenceOrb from "../components/PresenceOrb.jsx";
+import avatar from "../assets/yuvaraj-avatar.webp";
 import {
   startSession,
   getStoredSessionId,
@@ -153,7 +153,13 @@ export default function Chat() {
         className="glass depth-shadow relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl"
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
-          <PresenceOrb active={streaming} className="h-9 w-9 shrink-0 sm:h-12 sm:w-12" />
+          <motion.img
+            src={avatar}
+            alt="YUVARAJ"
+            animate={streaming ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+            transition={{ duration: 1.4, repeat: streaming ? Infinity : 0, ease: "easeInOut" }}
+            className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-blue-100 sm:h-12 sm:w-12"
+          />
           <div>
             <div className="font-semibold text-blue-900">YUVARAJ</div>
             <div className="text-xs text-blue-600/70">
