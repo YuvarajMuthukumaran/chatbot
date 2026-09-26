@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
-import avatar from "../assets/yuvaraj-avatar.webp";
+import TulasiMascot from "../components/TulasiMascot.jsx";
+import { detectMood } from "../lib/mood.js";
 import {
   startSession,
   getStoredSessionId,
@@ -13,7 +14,7 @@ import {
 import { storeCrisisResources } from "../lib/crisisResources.js";
 
 const GREETING =
-  "Hi, I'm YUVARAJ — a supportive companion from Tulasi Health Care. I'm here to listen and share " +
+  "Hi, I'm Tulasi — a supportive companion from Tulasi Health Care. I'm here to listen and share " +
   "some gentle tools, but I'm not a therapist or doctor and this isn't an emergency service — if you're " +
   "ever in immediate danger, please use the **Get Immediate Help** button. What's on your mind today?";
 
@@ -24,6 +25,7 @@ export default function Chat() {
   const [streaming, setStreaming] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [lastFailedText, setLastFailedText] = useState(null);
+  const [mood, setMood] = useState("neutral");
   const bottomRef = useRef(null);
   const startedRef = useRef(false);
 
@@ -183,6 +185,9 @@ export default function Chat() {
     const text = input.trim();
     if (!text || streaming || !sessionId) return;
 
+    const detected = detectMood(text);
+    if (detected) setMood(detected);
+
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     await runSend(text);
@@ -208,15 +213,9 @@ export default function Chat() {
         className="glass depth-shadow relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl"
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
-          <motion.img
-            src={avatar}
-            alt="YUVARAJ"
-            animate={streaming ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-            transition={{ duration: 1.4, repeat: streaming ? Infinity : 0, ease: "easeInOut" }}
-            className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-blue-100 sm:h-12 sm:w-12"
-          />
+          <TulasiMascot mood={mood} streaming={streaming} className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" />
           <div>
-            <div className="font-semibold text-blue-900">YUVARAJ</div>
+            <div className="font-semibold text-blue-900">Tulasi</div>
             <div className="text-xs text-blue-600/70">
               {streaming ? "Thinking with you…" : "Here to listen"}
             </div>
@@ -255,7 +254,7 @@ export default function Chat() {
           className="flex shrink-0 items-end gap-2 border-t border-slate-100 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4"
         >
           <label htmlFor="chat-input" className="sr-only">
-            Message YUVARAJ
+            Message Tulasi
           </label>
           <textarea
             id="chat-input"

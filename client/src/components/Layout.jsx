@@ -31,7 +31,7 @@ export default function Layout() {
           />
           <div className="leading-tight">
             <div className="text-sm font-bold tracking-tight text-blue-900 sm:text-base">
-              YUVARAJ
+              Tulasi
             </div>
             <div className="text-[9px] font-medium uppercase tracking-wider text-blue-600/80 sm:text-[11px]">
               A Tulasi Health Care Initiative

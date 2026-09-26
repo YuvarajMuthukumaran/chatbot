@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "YUVARAJ backend - proxies OpenRouter LLM calls for Tulasi Health Care's mental health companion",
+  "description": "Tulasi backend - proxies OpenRouter LLM calls for Tulasi Health Care's mental health companion",
   "main": "index.js",
   "scripts": {
     "dev": "node --watch index.js",

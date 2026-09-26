@@ -1,4 +1,4 @@
-# YUVARAJ — Tulasi Health Care's Mental Health Support Companion
+# Tulasi — Tulasi Health Care's Mental Health Support Companion
 
 A support chatbot with a React + Tailwind frontend and an Express backend that
 proxies all LLM calls through Groq (the API key never reaches the browser).
