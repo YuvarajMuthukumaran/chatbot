@@ -29,15 +29,17 @@ const MODEL_CHAIN = [
 
 const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS) || 20;
 
-function toChatMessages(history, message) {
-  return [
-    { role: "system", content: SYSTEM_INSTRUCTION },
+function toChatMessages(history, message, extraContext) {
+  const messages = [{ role: "system", content: SYSTEM_INSTRUCTION }];
+  if (extraContext) messages.push({ role: "system", content: extraContext });
+  messages.push(
     ...history.slice(-MAX_HISTORY_TURNS).map((turn) => ({
       role: turn.role === "model" ? "assistant" : "user",
       content: turn.text,
     })),
-    { role: "user", content: message },
-  ];
+    { role: "user", content: message }
+  );
+  return messages;
 }
 
 /** Extracts an HTTP-ish status code from an OpenAI-SDK-style error. */
@@ -56,9 +58,9 @@ function getErrorStatus(err) {
  * the full turn history every call, trimmed to the most recent turns to
  * bound latency/cost as a conversation grows. `history` is
  * [{ role: 'user' | 'model', text }]. */
-export async function streamReply({ history, message, onChunk, abortSignal }) {
+export async function streamReply({ history, message, onChunk, abortSignal, extraContext }) {
   const ai = getClient();
-  const messages = toChatMessages(history, message);
+  const messages = toChatMessages(history, message, extraContext);
 
   let lastErr = null;
 

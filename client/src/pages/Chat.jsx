@@ -72,29 +72,84 @@ export default function Chat() {
     setStreaming(true);
     setConnectionError(false);
 
-    let accumulated = "";
     setMessages((prev) => [...prev, { role: "model", text: "", pending: true }]);
+
+    // Groq can generate a whole reply faster than a person reads it, which
+    // makes it feel like a computer dumping text rather than someone
+    // actually responding. Decouple how fast text ARRIVES from how fast it
+    // APPEARS: buffer incoming chunks and reveal them at a steady, readable
+    // pace instead of rendering each chunk the instant it lands.
+    let fullText = "";
+    let revealedLength = 0;
+    let revealTimer = null;
+    let doneMeta = null;
+
+    const applyReveal = () => {
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { role: "model", text: fullText.slice(0, revealedLength), pending: true };
+        return next;
+      });
+    };
+    const finalizeMessage = () => {
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { role: "model", text: fullText, crisis: doneMeta?.crisis };
+        return next;
+      });
+      setStreaming(false);
+    };
+    const checkCompletion = () => {
+      if (revealedLength >= fullText.length && doneMeta) {
+        if (revealTimer) {
+          clearInterval(revealTimer);
+          revealTimer = null;
+        }
+        finalizeMessage();
+        return true;
+      }
+      return false;
+    };
+    const tick = () => {
+      if (revealedLength < fullText.length) {
+        revealedLength = Math.min(fullText.length, revealedLength + 2);
+        applyReveal();
+      }
+      checkCompletion();
+    };
+    // A brief pause before text starts appearing — like someone reading
+    // your message before replying — instead of flipping straight from
+    // "typing…" to a wall of text the instant the first token arrives.
+    const startDelayMs = 350 + Math.random() * 250;
+    let started = false;
+    let cancelled = false;
+    const ensureTimer = () => {
+      if (started || revealTimer) return;
+      started = true;
+      setTimeout(() => {
+        if (cancelled || revealTimer) return;
+        revealTimer = setInterval(tick, 25);
+      }, startDelayMs);
+    };
 
     await sendMessageStream({
       sessionId: activeSessionId,
       message: text,
       onChunk: (chunk) => {
-        accumulated += chunk;
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: "model", text: accumulated, pending: true };
-          return next;
-        });
+        fullText += chunk;
+        ensureTimer();
       },
       onDone: (meta) => {
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { role: "model", text: accumulated, crisis: meta.crisis };
-          return next;
-        });
-        setStreaming(false);
+        doneMeta = meta || {};
+        if (!checkCompletion()) ensureTimer();
       },
       onError: async (err) => {
+        cancelled = true;
+        if (revealTimer) {
+          clearInterval(revealTimer);
+          revealTimer = null;
+        }
+
         if (err?.sessionExpired && !isRetry) {
           try {
             const data = await startSession(getStoredProfile() || {});

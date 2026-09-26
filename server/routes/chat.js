@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getSession, appendTurn } from "../lib/sessionStore.js";
+import { getSession, appendTurn, markSpecialtiesSuggested } from "../lib/sessionStore.js";
 import { detectCrisis } from "../lib/crisisDetection.js";
 import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
+import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote } from "../lib/doctors.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -66,11 +67,20 @@ router.post("/chat", async (req, res) => {
     return finish();
   }
 
+  // Best-effort doctor recommendation: only for specialties not already
+  // surfaced this session, so it's mentioned once, not every relevant turn.
+  const matchedTags = matchSpecialties(message).filter(
+    (tag) => !session.suggestedSpecialties.has(tag)
+  );
+  const matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
+  const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
+
   const result = await streamReply({
     history: session.history,
     message,
     onChunk: (text) => send({ text }),
     abortSignal: controller.signal,
+    extraContext,
   });
 
   if (result.aborted) {
@@ -89,6 +99,7 @@ router.post("/chat", async (req, res) => {
 
   appendTurn(sessionId, "user", message);
   appendTurn(sessionId, "model", result.text);
+  if (matchedTags.length) markSpecialtiesSuggested(sessionId, matchedTags);
   finish();
 });
 
