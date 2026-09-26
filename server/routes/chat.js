@@ -3,7 +3,7 @@ import { getSession, appendTurn, markSpecialtiesSuggested } from "../lib/session
 import { detectCrisis } from "../lib/crisisDetection.js";
 import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
-import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote } from "../lib/doctors.js";
+import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote, wantsDoctorHelp } from "../lib/doctors.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -69,9 +69,12 @@ router.post("/chat", async (req, res) => {
 
   // Best-effort doctor recommendation: only for specialties not already
   // surfaced this session, so it's mentioned once, not every relevant turn.
-  const matchedTags = matchSpecialties(message).filter(
-    (tag) => !session.suggestedSpecialties.has(tag)
-  );
+  // Also gated on wantsDoctorHelp — merely naming a feeling ("I feel
+  // anxious") shouldn't trigger a referral; only explicit help-seeking or
+  // real distress/severity should.
+  const matchedTags = wantsDoctorHelp(message)
+    ? matchSpecialties(message).filter((tag) => !session.suggestedSpecialties.has(tag))
+    : [];
   const matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
   const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
 

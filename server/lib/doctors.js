@@ -67,6 +67,21 @@ export function matchSpecialties(text) {
   return tags;
 }
 
+// Mentioning a condition once ("I feel anxious") isn't itself a reason to
+// suggest a doctor — that reads as pushy for what might just be a passing
+// feeling. Only recommend when someone is explicitly asking for
+// professional help, or showing real distress/severity about it.
+const HELP_SEEKING_PATTERN =
+  /\b(doctor|psychiatrist|psychologist|therapist|specialist|counsell?or|professional help|see someone|talk to someone|book(?:ing)?|appointment)\b/i;
+
+const CONCERN_PATTERN =
+  /\bcan'?t (?:take|handle|cope|stop|sleep|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do (?:anymore)?|really (?:struggling|bad|hard)|\bscares? me\b|\bi'?m worried\b/i;
+
+export function wantsDoctorHelp(text) {
+  if (!text) return false;
+  return HELP_SEEKING_PATTERN.test(text) || CONCERN_PATTERN.test(text);
+}
+
 export function getDoctorsForSpecialties(tags, limit = 2) {
   if (!tags.length) return [];
   const scored = DOCTORS.map((d) => ({
