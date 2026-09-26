@@ -47,22 +47,19 @@ export default function ChatBubble({ role, text, crisis, doctors }) {
             {doctors?.length > 0 && (
               <div className="mt-2 flex flex-col gap-2 border-t border-blue-100 pt-2">
                 {doctors.map((d) => (
-                  <div key={d.name} className="flex items-center gap-2.5 rounded-xl bg-white/70 p-1.5">
+                  <div key={d.name} className="flex items-center gap-3 rounded-xl bg-white/70 p-2">
                     {d.photo ? (
                       <img
                         src={d.photo}
                         alt={d.name}
-                        className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-blue-100"
+                        className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-blue-100"
                       />
                     ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700 ring-1 ring-blue-100">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-700 ring-1 ring-blue-100">
                         {d.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*/i, "").charAt(0)}
                       </div>
                     )}
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-blue-900">{d.name}</div>
-                      <div className="truncate text-xs text-blue-600/70">{d.role}</div>
-                    </div>
+                    <div className="min-w-0 truncate text-sm font-semibold text-blue-900">{d.name}</div>
                   </div>
                 ))}
               </div>
