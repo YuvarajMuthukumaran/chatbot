@@ -89,6 +89,32 @@ function Stethoscope() {
   );
 }
 
+// A small white coat lapel + buttons over the chest, and a clipboard held
+// out to the side — the two extra signifiers (beyond the stethoscope) that
+// read as "doctor" even at the mascot's small on-screen size.
+function DoctorCoat() {
+  return (
+    <>
+      <path d="M49,90 Q60,97 71,90 L75,108 Q60,112 45,108 Z" fill="#FFFFFF" stroke="#C7D1D6" strokeWidth="1.5" />
+      <path d="M60,96 L60,109" stroke="#C7D1D6" strokeWidth="1.2" />
+      <circle cx="60" cy="100" r="1.4" fill="#8A99A1" />
+      <circle cx="60" cy="105.5" r="1.4" fill="#8A99A1" />
+    </>
+  );
+}
+
+function Clipboard() {
+  return (
+    <g transform="translate(88,90) rotate(12)">
+      <rect x="0" y="0" width="16" height="22" rx="2" fill="#B98A5E" stroke="#8A6339" strokeWidth="1.2" />
+      <rect x="4.5" y="-2.5" width="7" height="4" rx="1" fill="#8A99A1" />
+      <line x1="3.5" y1="6" x2="12.5" y2="6" stroke="#F5EDE1" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="3.5" y1="10.5" x2="12.5" y2="10.5" stroke="#F5EDE1" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="3.5" y1="15" x2="10" y2="15" stroke="#F5EDE1" strokeWidth="1.3" strokeLinecap="round" />
+    </g>
+  );
+}
+
 function Face({ mood }) {
   switch (mood) {
     case "happy":
@@ -227,13 +253,15 @@ export default function TulasiMascot({ mood = "neutral", streaming = false, doct
         <AnimatePresence>
           {doctorMode && (
             <motion.g
-              key="stethoscope"
+              key="doctor-accessories"
               initial={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.7 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
             >
+              <DoctorCoat />
               <Stethoscope />
+              <Clipboard />
             </motion.g>
           )}
         </AnimatePresence>

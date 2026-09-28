@@ -136,13 +136,27 @@ function normalizeTime(raw) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
-const NON_NAME_WORDS = /^(a|an|the|someone|somebody|anyone|doctor|dr|specialist)$/i;
+const NON_NAME_WORDS =
+  /^(a|an|the|someone|somebody|anyone|doctor|dr|specialist|me|my|myself|him|her|them|today|tomorrow|tonight)$/i;
 
+function isDateLikeWord(word) {
+  return MONTH_NAMES[word.toLowerCase()] !== undefined || /^\d+(st|nd|rd|th)?$/.test(word);
+}
+
+// "for" is a weaker signal than "dr/with/see/meet" — it also introduces dates
+// ("appointment for tomorrow") and specialties ("appointment for anxiety"),
+// so a "for X" match is rejected whenever X reads as a date word or already
+// matches a known specialty, leaving it to those searches instead.
 function extractDoctorName(text) {
-  const m = text.match(/\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)|\b(?:with|see|meet)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
+  const m = text.match(
+    /\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)|\b(?:with|see|meet|for)\s+([a-z]+(?:\s+[a-z]+)?)\b/i
+  );
   if (!m) return null;
   const name = (m[1] || m[2] || "").trim();
-  if (!name || NON_NAME_WORDS.test(name.split(/\s+/)[0])) return null;
+  if (!name) return null;
+  const firstWord = name.split(/\s+/)[0];
+  if (NON_NAME_WORDS.test(firstWord) || isDateLikeWord(firstWord)) return null;
+  if (matchSpecialties(name).length) return null;
   return name;
 }
 
