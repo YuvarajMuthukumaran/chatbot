@@ -3,6 +3,25 @@ import { SYSTEM_INSTRUCTION } from "./systemInstruction.js";
 
 let client = null;
 
+// Diagnostic only, for the same reason db.js exposes getLastDbError(): the
+// generic user-facing fallback text is deliberately vague, but that leaves
+// no way to tell rate-limiting apart from an auth/config problem from the
+// outside — surface the real status/message here instead.
+let lastLlmError = null;
+
+export function getLastLlmError() {
+  return lastLlmError;
+}
+
+function recordError(err, status, model) {
+  lastLlmError = {
+    status: status ?? null,
+    message: err?.message || String(err),
+    model,
+    at: new Date().toISOString(),
+  };
+}
+
 function getClient() {
   if (!client) {
     const apiKey = process.env.GROQ_API_KEY;
@@ -98,6 +117,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
 
       lastErr = err;
       const status = getErrorStatus(err);
+      recordError(err, status, model);
 
       if ((status === 429 || status === 503 || status === 502 || status === 504) && !isLastModel) {
         console.warn(`Model "${model}" unavailable (${status}), falling back to "${MODEL_CHAIN[i + 1]}"`);
