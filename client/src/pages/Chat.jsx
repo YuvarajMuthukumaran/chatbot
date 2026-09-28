@@ -200,8 +200,9 @@ export default function Chat() {
     await runSend(text);
   };
 
-  // "Doctor Tulasi" whenever the latest reply is recommending specialists —
-  // reverts to plain "Tulasi" as soon as the conversation moves past that.
+  // The mascot switches to "doctor mode" (stethoscope) whenever the latest
+  // reply is recommending specialists — reverts once the conversation moves
+  // past that. Name label stays "Tulasi"; only the character's look changes.
   const lastModelMessage = [...messages].reverse().find((m) => m.role === "model" && !m.pending);
   const showingDoctors = !!lastModelMessage?.doctors?.length;
 
@@ -218,9 +219,14 @@ export default function Chat() {
         className="glass depth-shadow relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl"
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
-          <TulasiMascot mood={mood} streaming={streaming} className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" />
+          <TulasiMascot
+            mood={mood}
+            streaming={streaming}
+            doctorMode={showingDoctors}
+            className="h-11 w-11 shrink-0 sm:h-14 sm:w-14"
+          />
           <div>
-            <div className="font-semibold text-blue-900">{showingDoctors ? "Doctor Tulasi" : "Tulasi"}</div>
+            <div className="font-semibold text-blue-900">Tulasi</div>
             <div className="text-xs text-blue-600/70">
               {streaming ? "Thinking with you…" : "Here to listen"}
             </div>

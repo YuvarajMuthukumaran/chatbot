@@ -76,6 +76,19 @@ function Sparkle({ x, y, delay }) {
   );
 }
 
+function Stethoscope() {
+  return (
+    <>
+      <path d="M40,30 Q60,18 80,30" stroke="#5C6B73" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <circle cx="40" cy="30" r="4" fill="#5C6B73" />
+      <circle cx="80" cy="30" r="4" fill="#5C6B73" />
+      <path d="M80,30 Q98,44 95,60 Q92,74 84,79" stroke="#5C6B73" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <circle cx="85" cy="82" r="7" fill="#8A99A1" stroke="#5C6B73" strokeWidth="1.5" />
+      <circle cx="83" cy="80" r="2.2" fill="#C7D1D6" opacity="0.8" />
+    </>
+  );
+}
+
 function Face({ mood }) {
   switch (mood) {
     case "happy":
@@ -165,14 +178,18 @@ function Face({ mood }) {
  * Animated tulasi-leaf mascot whose expression reacts to `mood`.
  * `streaming` overrides the idle motion with a faster "thinking" pulse.
  */
-export default function TulasiMascot({ mood = "neutral", streaming = false, className = "" }) {
+export default function TulasiMascot({ mood = "neutral", streaming = false, doctorMode = false, className = "" }) {
   const safeMood = MOOD_LABELS[mood] ? mood : "neutral";
   const body = streaming
     ? { animate: { scale: [1, 1.06, 1] }, transition: { duration: 1.1, repeat: Infinity, ease: "easeInOut" } }
     : BODY_MOTION[safeMood];
 
   return (
-    <div role="img" aria-label={`Tulasi mascot — mood: ${MOOD_LABELS[safeMood]}`} className={className}>
+    <div
+      role="img"
+      aria-label={`Tulasi mascot — mood: ${MOOD_LABELS[safeMood]}${doctorMode ? ", doctor mode" : ""}`}
+      className={className}
+    >
       <motion.svg viewBox="0 0 120 120" className="h-full w-full" animate={body.animate} transition={body.transition} aria-hidden="true">
         <defs>
           <radialGradient id="tulasiGlow" cx="50%" cy="42%" r="60%">
@@ -205,6 +222,20 @@ export default function TulasiMascot({ mood = "neutral", streaming = false, clas
           >
             <Face mood={safeMood} />
           </motion.g>
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {doctorMode && (
+            <motion.g
+              key="stethoscope"
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <Stethoscope />
+            </motion.g>
+          )}
         </AnimatePresence>
       </motion.svg>
     </div>
