@@ -30,8 +30,11 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function isValidDate(date) {
   if (!DATE_PATTERN.test(date)) return false;
-  const d = new Date(`${date}T00:00:00`);
-  return !Number.isNaN(d.getTime());
+  const [y, m, d] = date.split("-").map(Number);
+  // Component constructor rolls invalid values over (Feb 30 -> Mar 2)
+  // instead of rejecting them — round-tripping the parts catches that.
+  const parsed = new Date(y, m - 1, d);
+  return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
 }
 
 export function isValidSlotTime(time) {

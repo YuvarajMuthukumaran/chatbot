@@ -45,14 +45,78 @@ function reset(state) {
   Object.assign(state, initState());
 }
 
+const MONTH_NAMES = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+const MONTH_NAME_PATTERN = Object.keys(MONTH_NAMES)
+  .sort((a, b) => b.length - a.length) // longest first so "september" wins over "sep"
+  .join("|");
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Builds YYYY-MM-DD from a day/month with no year given — assumes the
+// nearest upcoming occurrence (if that day already passed this year, use
+// next year instead), since someone booking an appointment always means a
+// future date.
+function nextOccurrence(month, day) {
+  const now = new Date();
+  let year = now.getFullYear();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (new Date(`${year}-${pad2(month)}-${pad2(day)}T00:00:00`) < today) year += 1;
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
 function normalizeDate(raw) {
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return raw;
-  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (!m) return null;
-  let [, d, mo, y] = m;
-  if (y.length === 2) y = `20${y}`;
-  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const text = raw.trim().toLowerCase();
+
+  if (text === "today") return new Date().toISOString().slice(0, 10);
+  if (text === "tomorrow") {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return t.toISOString().slice(0, 10);
+  }
+
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return text;
+
+  const numeric = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (numeric) {
+    let [, d, mo, y] = numeric;
+    if (y.length === 2) y = `20${y}`;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  // "oct 1", "october 1st", "oct 1, 2026", "oct 1 2026"
+  let m = text.match(new RegExp(`\\b(${MONTH_NAME_PATTERN})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`));
+  if (m) {
+    const month = MONTH_NAMES[m[1]];
+    const day = Number(m[2]);
+    return m[3] ? `${m[3]}-${pad2(month)}-${pad2(day)}` : nextOccurrence(month, day);
+  }
+
+  // "1 oct", "1st october", "1 october 2026"
+  m = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_NAME_PATTERN})\\.?(?:,?\\s+(\\d{4}))?\\b`));
+  if (m) {
+    const day = Number(m[1]);
+    const month = MONTH_NAMES[m[2]];
+    return m[3] ? `${m[3]}-${pad2(month)}-${pad2(day)}` : nextOccurrence(month, day);
+  }
+
+  return null;
 }
 
 function isPastDate(date) {
