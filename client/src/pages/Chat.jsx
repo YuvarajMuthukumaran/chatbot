@@ -200,6 +200,11 @@ export default function Chat() {
     await runSend(text);
   };
 
+  // "Doctor Tulasi" whenever the latest reply is recommending specialists —
+  // reverts to plain "Tulasi" as soon as the conversation moves past that.
+  const lastModelMessage = [...messages].reverse().find((m) => m.role === "model" && !m.pending);
+  const showingDoctors = !!lastModelMessage?.doctors?.length;
+
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-2 py-2 sm:px-6 sm:py-6">
       <motion.div
@@ -215,7 +220,7 @@ export default function Chat() {
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
           <TulasiMascot mood={mood} streaming={streaming} className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" />
           <div>
-            <div className="font-semibold text-blue-900">Tulasi</div>
+            <div className="font-semibold text-blue-900">{showingDoctors ? "Doctor Tulasi" : "Tulasi"}</div>
             <div className="text-xs text-blue-600/70">
               {streaming ? "Thinking with you…" : "Here to listen"}
             </div>

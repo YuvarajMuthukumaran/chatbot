@@ -15,7 +15,7 @@ export const DOCTORS = [
   { name: "Dr. Rini Maurya", role: "Consultant Psychiatrist", specialties: ["depression", "child_adolescent", "geriatric_dementia", "rehabilitation"], focus: "Clinical experience across AIIMS and NIMHANS.", photo: "/doctors/rini-maurya.webp" },
   { name: "Dr. Ratnarakshit Ingole", role: "Senior Consultant Psychiatrist", specialties: [], focus: "" },
   { name: "Dr. Anil Kumar", role: "Consultant Psychiatrist", specialties: [], focus: "18+ years diagnosing a broad range of psychiatric disorders." },
-  { name: "Dr. Anu Yadav", role: "Consultant Psychiatrist", specialties: [], focus: "Holistic treatment approach." },
+  { name: "Dr. Anu Yadav", role: "Consultant Psychiatrist", specialties: [], focus: "Holistic treatment approach.", photo: "/doctors/anu-yadav.jpg" },
   { name: "Dr. Naseem Akhtar Qureshi", role: "Senior Consultant Psychiatrist", specialties: [], focus: "45+ years of clinical, academic, and administrative experience across India, Saudi Arabia, and the UAE." },
   { name: "Dr. Kritika Soni", role: "Consultant Psychiatrist", specialties: [], focus: "" },
   { name: "Dr. Samridhi Sandooja", role: "Consultant Psychiatrist", specialties: [], focus: "" },
@@ -119,7 +119,7 @@ export function matchSpecialties(text) {
 // catches most romanized requests — these add the native-script forms for
 // when someone types in their own script instead.
 const HELP_SEEKING_PATTERNS = [
-  /\b(doctors?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i,
+  /\b(doctors?|docs?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i,
   /डॉक्टर|मनोचिकित्सक|मनोवैज्ञानिक|विशेषज्ञ|काउंसलर/, // Hindi
   /மருத்துவர்|நிபுணர்|ஆலோசகர்/, // Tamil
   /డాక్టర్|వైద్యుడు|నిపుణుడు|కౌన్సెలర్/, // Telugu
