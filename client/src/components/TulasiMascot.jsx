@@ -205,7 +205,11 @@ function Face({ mood }) {
  * `streaming` overrides the idle motion with a faster "thinking" pulse.
  */
 export default function TulasiMascot({ mood = "neutral", streaming = false, doctorMode = false, className = "" }) {
-  const safeMood = MOOD_LABELS[mood] ? mood : "neutral";
+  const detectedMood = MOOD_LABELS[mood] ? mood : "neutral";
+  // Doctor mode is presenting a reassuring recommendation, not mirroring
+  // whatever distress prompted it — the mascot always reads as calm here,
+  // regardless of the conversation's mood (e.g. anxious).
+  const safeMood = doctorMode ? "happy" : detectedMood;
   const body = streaming
     ? { animate: { scale: [1, 1.06, 1] }, transition: { duration: 1.1, repeat: Infinity, ease: "easeInOut" } }
     : BODY_MOTION[safeMood];
