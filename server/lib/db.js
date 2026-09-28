@@ -8,8 +8,11 @@ import { MongoClient } from "mongodb";
 // and replica set (resolved once via DNS-over-HTTPS) so it connects the
 // same way in any environment. Original form, for reference:
 // mongodb+srv://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@cluster0.dptw3ke.mongodb.net/?appName=Cluster0
+// tls=true is added explicitly here — mongodb+srv:// implies TLS
+// automatically per the driver spec, but a plain mongodb:// URI does not,
+// and Atlas refuses unencrypted connections outright.
 const MONGODB_URI =
-  "mongodb://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@ac-l94jddb-shard-00-00.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-01.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-02.dptw3ke.mongodb.net:27017/?replicaSet=atlas-p5qr7i-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0";
+  "mongodb://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@ac-l94jddb-shard-00-00.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-01.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-02.dptw3ke.mongodb.net:27017/?replicaSet=atlas-p5qr7i-shard-0&authSource=admin&retryWrites=true&w=majority&tls=true&appName=Cluster0";
 const DB_NAME = "tulasi_test";
 
 const MAX_RETRIES = 5;
@@ -18,6 +21,7 @@ const RETRY_DELAY_MS = 3000;
 let client = null;
 let db = null;
 let connectingPromise = null;
+let lastError = null;
 
 async function ensureIndexes(database) {
   await database.collection("doctors").createIndex({ name: 1 });
@@ -61,7 +65,8 @@ export async function connectDB() {
         console.log(`[db] Connected to MongoDB Atlas (db "${DB_NAME}", attempt ${attempt}/${MAX_RETRIES}).`);
         return db;
       } catch (err) {
-        console.error(`[db] Connection attempt ${attempt}/${MAX_RETRIES} failed: ${err?.message || err}`);
+        lastError = err?.message || String(err);
+        console.error(`[db] Connection attempt ${attempt}/${MAX_RETRIES} failed: ${lastError}`);
         if (attempt === MAX_RETRIES) {
           console.error(
             "[db] MongoDB connection failed after all retries — doctor search and appointment booking will be unavailable until this is resolved."
@@ -80,4 +85,9 @@ export async function connectDB() {
 /** Returns the connected db handle, or null if not (yet) connected. */
 export function getDb() {
   return db;
+}
+
+/** Diagnostic only — the message from the most recent failed connection attempt. */
+export function getLastDbError() {
+  return lastError;
 }
