@@ -5,7 +5,8 @@
 const INTENT_PATTERNS = {
   admission: /\badmission status\b|\bam i (still )?admitted\b|\bstill admitted\b|\bhospital admission\b|\bmy admission status\b/i,
   discharge: /\bdischarge summary\b|\bwhen (was|am) i discharged\b|\bmy discharge\b/i,
-  visits: /\bmy visits?\b|\bvisit history\b|\blast \d+ visits?\b|\bmy last visit\b|\brecent visits?\b/i,
+  visits:
+    /\bmy (visits?|appointments?)\b|\b(visit|appointment) history\b|\blast \d+ (visits?|appointments?)\b|\bmy last (visit|appointment)\b|\brecent (visits?|appointments?)\b/i,
   prescription:
     /\bmy prescriptions?\b|\bwhat did the doctor prescribe\b|\bmedication history\b|\b(check|show|see|view|find) my medicines?\b|\bwhat medicines? (was i|were you) prescribed\b/i,
   register: /\bregister (me|as a patient)\b|\bnew patient\b|\bfind my (patient id|uhid)\b/i,
