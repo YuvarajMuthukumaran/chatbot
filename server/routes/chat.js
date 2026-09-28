@@ -6,6 +6,7 @@ import { streamReply } from "../lib/llmClient.js";
 import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote, wantsDoctorHelp } from "../lib/doctors.js";
 import { handleHmsTurn } from "../lib/hmsFlow.js";
 import { handleBookingTurn } from "../lib/bookingFlow.js";
+import { looksLikeAbandonment } from "../lib/conversationEscape.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -68,6 +69,17 @@ router.post("/chat", async (req, res) => {
     appendTurn(sessionId, "model", reply);
     send({ text: reply, crisis: true });
     return finish();
+  }
+
+  // Safety net: a mid-flow session (HMS verification or booking search)
+  // captures every message it receives, including ones that have nothing to
+  // do with it. If someone mid-flow says something that reads as genuine
+  // distress or an explicit "never mind," abandon the flow instead of
+  // forcing the message through it — a stuck form-fill state must never
+  // swallow an emotional disclosure in a mental-health companion.
+  if ((session.hms?.collecting || session.booking?.flow) && looksLikeAbandonment(message)) {
+    if (session.hms) session.hms.collecting = null;
+    session.booking = null;
   }
 
   // Patient self-service (admission/discharge status, prescriptions, patient

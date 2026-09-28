@@ -72,9 +72,14 @@ function normalizeTime(raw) {
   return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
+const NON_NAME_WORDS = /^(a|an|the|someone|somebody|anyone|doctor|dr|specialist)$/i;
+
 function extractDoctorName(text) {
-  const m = text.match(/\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)/i);
-  return m ? m[1].trim() : null;
+  const m = text.match(/\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)|\b(?:with|see|meet)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
+  if (!m) return null;
+  const name = (m[1] || m[2] || "").trim();
+  if (!name || NON_NAME_WORDS.test(name.split(/\s+/)[0])) return null;
+  return name;
 }
 
 function extractRole(text) {

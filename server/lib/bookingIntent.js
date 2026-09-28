@@ -11,7 +11,7 @@
 const INTENT_PATTERNS = {
   cancelBooking: /\bcancel my (appointment|booking)\b/i,
   reschedule: /\breschedule my (appointment|booking)\b|\bchange my appointment (time|date)\b/i,
-  book: /\bbook (an |a )?appointment\b|\bschedule (an |a )?appointment\b|\bi want to (see|book|meet) a doctor\b|\bbook (with|a) dr\.?\s/i,
+  book: /\bbook (an |a )?appointment\b|\bschedule (an |a )?appointment\b|\bi want to (see|book|meet) a doctor\b|\bbook with\b|\bbook (?:an? )?(?:dr|ms|mr)\.?\s/i,
   myBookings: /\bmy bookings?\b|\bupcoming appointments?\b|\bscheduled appointments?\b|\bappointments? i(?:'ve| have)? booked\b/i,
 };
 
