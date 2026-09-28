@@ -10,8 +10,17 @@ import {
   matchOrRegisterPatient,
   getAdmissionStatus,
   getDischargeSummary,
+  getPatientProfile,
   getPrescriptions,
 } from "./hmsClient.js";
+
+function titleCase(raw) {
+  return raw
+    .toLowerCase()
+    .split(" ")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
 
 const PHONE_PATTERN = /\b\d{10}\b/;
 const AGE_PATTERN = /\b(1[0-1][0-9]|120|[1-9]?[0-9])\b/; // 0–120, sane human age range
@@ -101,6 +110,21 @@ function formatPrescriptions(data) {
   return `Here are your most recent prescriptions:\n\n${lines}`;
 }
 
+function formatVisits(data) {
+  const list = data?.last_5_visit_dates;
+  if (!list || !list.length) return "I couldn't find any recent visits on file.";
+  const lines = list
+    .slice(0, 5)
+    .map((v) => {
+      const when = `${v.visit_date || "Unknown date"}${v.visit_time ? ` ${v.visit_time}` : ""}`;
+      const doctor = v.specialist_name ? `Dr. ${titleCase(v.specialist_name)}` : null;
+      const details = [v.visit_type, doctor, v.token_number ? `token #${v.token_number}` : null].filter(Boolean);
+      return `- **${when}:** ${details.join(" — ") || "Visit"}`;
+    })
+    .join("\n");
+  return `Here are your last ${list.length} visits:\n\n${lines}`;
+}
+
 async function fulfillIntent(hms) {
   try {
     switch (hms.pendingIntent) {
@@ -110,10 +134,12 @@ async function fulfillIntent(hms) {
         return formatDischarge((await getDischargeSummary(hms.uhid))?.data);
       case "prescription":
         return formatPrescriptions((await getPrescriptions(hms.uhid))?.data);
+      case "visits":
+        return formatVisits((await getPatientProfile(hms.uhid))?.data);
       case "register":
-        return `You're already matched to your record (patient ID ${hms.patientId}). Let me know if you'd like your admission status, discharge summary, or recent prescriptions.`;
+        return `You're already matched to your record (patient ID ${hms.patientId}). Let me know if you'd like your admission status, discharge summary, visit history, or recent prescriptions.`;
       default:
-        return "Would you like your admission status, discharge summary, or recent prescriptions?";
+        return "Would you like your admission status, discharge summary, visit history, or recent prescriptions?";
     }
   } catch (err) {
     console.error("HMS data fetch failed:", err?.message || err);
