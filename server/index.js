@@ -5,7 +5,7 @@ import sessionRoutes from "./routes/session.js";
 import chatRoutes from "./routes/chat.js";
 import doctorsRoutes from "./routes/doctors.js";
 import appointmentsRoutes from "./routes/appointments.js";
-import { connectDB } from "./lib/db.js";
+import { connectDB, getDb, getLastDbError } from "./lib/db.js";
 
 const app = express();
 const port = process.env.PORT || 8787;
@@ -17,6 +17,9 @@ app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "32kb" }));
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+// Diagnostic only, while wiring up the test MongoDB connection — no
+// credentials exposed, just the connection state and last error message.
+app.get("/api/db-status", (req, res) => res.json({ connected: !!getDb(), lastError: getLastDbError() }));
 
 app.use("/api", sessionRoutes);
 app.use("/api", chatRoutes);
