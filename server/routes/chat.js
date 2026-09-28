@@ -5,6 +5,7 @@ import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
 import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote, wantsDoctorHelp } from "../lib/doctors.js";
 import { handleHmsTurn } from "../lib/hmsFlow.js";
+import { handleBookingTurn } from "../lib/bookingFlow.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -79,6 +80,18 @@ router.post("/chat", async (req, res) => {
     appendTurn(sessionId, "user", message);
     appendTurn(sessionId, "model", hmsResult.reply);
     send({ text: hmsResult.reply });
+    return finish();
+  }
+
+  // Appointment booking (search doctors, book/view/cancel/reschedule): a
+  // separate, newer system from the HMS flow above — this one manages
+  // Tulasi's own booking calendar (MongoDB), not the hospital's real HMS
+  // records. Same "fully deterministic, bypasses the LLM" design.
+  const bookingResult = await handleBookingTurn(session, message);
+  if (bookingResult.handled) {
+    appendTurn(sessionId, "user", message);
+    appendTurn(sessionId, "model", bookingResult.reply);
+    send({ text: bookingResult.reply });
     return finish();
   }
 

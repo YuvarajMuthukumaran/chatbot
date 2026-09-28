@@ -1,7 +1,13 @@
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { motion } from "framer-motion";
 import CrisisButton from "./CrisisButton.jsx";
 import logo from "../assets/tulasi-logo.webp";
+
+const NAV_LINKS = [
+  { to: "/", label: "Chat", icon: "💬", end: true },
+  { to: "/doctors", label: "Find a Doctor", icon: "🩺" },
+  { to: "/appointments", label: "My Appointments", icon: "📅" },
+];
 
 export default function Layout() {
   return (
@@ -21,7 +27,7 @@ export default function Layout() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center gap-2 rounded-2xl px-3 py-2 sm:mx-6 sm:mt-4 sm:px-4 sm:py-2.5"
+        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 sm:mx-6 sm:mt-4 sm:px-4 sm:py-2.5"
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <img
@@ -38,6 +44,24 @@ export default function Layout() {
             </div>
           </div>
         </div>
+
+        <nav className="flex items-center gap-1 sm:gap-1.5">
+          {NAV_LINKS.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors sm:px-3.5 sm:text-sm ${
+                  isActive ? "bg-blue-700 text-white" : "text-blue-700 hover:bg-blue-50"
+                }`
+              }
+            >
+              <span aria-hidden="true">{link.icon}</span>
+              <span className="hidden sm:inline">{link.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </motion.header>
 
       <main id="main-content" className="relative z-10 flex min-h-0 flex-1 flex-col">

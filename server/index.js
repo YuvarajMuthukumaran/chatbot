@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import sessionRoutes from "./routes/session.js";
 import chatRoutes from "./routes/chat.js";
+import doctorsRoutes from "./routes/doctors.js";
+import appointmentsRoutes from "./routes/appointments.js";
+import { connectDB } from "./lib/db.js";
 
 const app = express();
 const port = process.env.PORT || 8787;
@@ -17,6 +20,8 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api", sessionRoutes);
 app.use("/api", chatRoutes);
+app.use("/api", doctorsRoutes);
+app.use("/api", appointmentsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -26,3 +31,9 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
   console.log(`Tulasi server listening on http://localhost:${port}`);
 });
+
+// Connecting is best-effort and non-blocking: the core chat/crisis features
+// don't depend on Mongo, so a slow or failed DB connection shouldn't delay
+// or take down the whole server. Doctor search/booking routes check
+// getDb() themselves and return 503 until this resolves.
+connectDB();

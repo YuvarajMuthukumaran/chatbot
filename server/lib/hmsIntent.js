@@ -12,9 +12,17 @@ const INTENT_PATTERNS = {
   register: /\bregister (me|as a patient)\b|\bnew patient\b|\bfind my (patient id|uhid)\b/i,
 };
 
+// "cancel/book/reschedule my appointment" are booking-system actions (see
+// bookingIntent.js), not a request to look at past-visit history — but they
+// contain the same word "appointment" the visits pattern matches on. Skip
+// the visits check specifically when one of those verbs is present, so
+// those phrases fall through to the booking flow instead.
+const BOOKING_ACTION_WORDS = /\b(book|cancel|reschedule|schedule)\b/i;
+
 export function detectHmsIntent(text) {
   if (!text) return null;
   for (const [intent, pattern] of Object.entries(INTENT_PATTERNS)) {
+    if (intent === "visits" && BOOKING_ACTION_WORDS.test(text)) continue;
     if (pattern.test(text)) return intent;
   }
   return null;
