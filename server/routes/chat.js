@@ -4,6 +4,7 @@ import { detectCrisis } from "../lib/crisisDetection.js";
 import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
 import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote, wantsDoctorHelp } from "../lib/doctors.js";
+import { handleHmsTurn } from "../lib/hmsFlow.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -65,6 +66,19 @@ router.post("/chat", async (req, res) => {
     appendTurn(sessionId, "user", message);
     appendTurn(sessionId, "model", reply);
     send({ text: reply, crisis: true });
+    return finish();
+  }
+
+  // Patient self-service (admission/discharge status, prescriptions, patient
+  // lookup): fully deterministic, like crisis detection above. Handles the
+  // whole verify-then-fetch conversation across turns and completely
+  // bypasses the LLM whenever it's active, so the model never sees or
+  // rephrases real medical data.
+  const hmsResult = await handleHmsTurn(session, message);
+  if (hmsResult.handled) {
+    appendTurn(sessionId, "user", message);
+    appendTurn(sessionId, "model", hmsResult.reply);
+    send({ text: hmsResult.reply });
     return finish();
   }
 
