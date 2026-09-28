@@ -42,27 +42,70 @@ export const DOCTORS = [
 
 // Best-effort, deliberately conservative — only fires on fairly explicit
 // mentions so it doesn't inject a doctor suggestion into casual chat.
+// Acronym-style conditions (OCD/ADHD/PTSD) are left English-only since even
+// in Hindi/Tamil/Telugu conversation those acronyms are almost always typed
+// as-is in Roman letters rather than spelled out natively.
 const INTENT_PATTERNS = {
-  ocd: /\bOCD\b|obsessive[\s-]?compulsive/i,
-  depression: /\bdepress(ed|ion|ing)?\b/i,
-  anxiety: /\banxi(ety|ous)\b|panic attack/i,
-  bipolar: /\bbipolar\b/i,
-  schizophrenia: /\bschizophrenia\b|hearing voices|hallucinat/i,
-  addiction: /\balcoholism\b|\bde-?addiction\b|\baddicted\b|\baddiction\b|\bsubstance abuse\b/i,
-  child_adolescent: /\bmy (son|daughter|kid|child)\b|\bteenager\b/i,
-  geriatric_dementia: /\bdementia\b|\balzheimer/i,
-  personality_disorder: /\bpersonality disorder\b|\bborderline personality\b/i,
-  sexual_disorder: /\bsexual\b.{0,20}\b(problem|dysfunction|disorder|issue)\b/i,
-  autism: /\bautis(m|tic)\b/i,
-  adhd: /\bADHD\b|attention deficit/i,
-  ptsd: /\bPTSD\b|post[\s-]?traumatic|\bflashbacks?\b/i,
+  ocd: [/\bOCD\b|obsessive[\s-]?compulsive/i],
+  depression: [
+    /\bdepress(ed|ion|ing)?\b/i,
+    /अवसाद|डिप्रेशन/, // Hindi
+    /மனச்சோர்வு|டிப்ரஷன்/, // Tamil
+    /నిరాశ|డిప్రెషన్/, // Telugu
+  ],
+  anxiety: [
+    /\banxi(ety|ous)\b|panic attack/i,
+    /चिंता|घबराहट|एंग्जायटी/, // Hindi
+    /பதற்ற|ஆங்சைட்டி/, // Tamil — stem, not full word: பதற்றம் becomes பதற்றத்திற்கு etc. under case suffixes
+    /ఆందోళన|కంగారు|యాంగ్జైటీ/, // Telugu
+  ],
+  bipolar: [/\bbipolar\b/i, /बाइपोलर/, /பைபோலார்/, /బైపోలార్/],
+  schizophrenia: [
+    /\bschizophrenia\b|hearing voices|hallucinat/i,
+    /सिज़ोफ्रेनिया/,
+    /ஸ்கிசோஃப்ரினியா/,
+    /స్కిజోఫ్రెనియా/,
+  ],
+  addiction: [
+    /\balcoholism\b|\bde-?addiction\b|\baddicted\b|\baddiction\b|\bsubstance abuse\b/i,
+    /नशा|लत|शराबखोरी/, // Hindi
+    /போதை|அடிமை/, // Tamil
+    /మత్తు|వ్యసనం/, // Telugu
+  ],
+  child_adolescent: [
+    /\bmy (son|daughter|kid|child)\b|\bteenager\b/i,
+    /मेरा बेटा|मेरी बेटी|मेरा बच्चा|किशोर/, // Hindi
+    /என் மகன்|என் மகள்|என் குழந்தை|இளம்பருவத/, // Tamil
+    /నా కొడుకు|నా కూతురు|నా పిల్లవాడు|కౌమారదశ/, // Telugu
+  ],
+  geriatric_dementia: [
+    /\bdementia\b|\balzheimer/i,
+    /डिमेंशिया|भूलने की बीमारी|अल्ज़ाइमर/, // Hindi
+    /டிமென்ஷியா|மறதி நோய்|அல்சைமர்/, // Tamil
+    /చిత్తవైకల్యం|మతిమరుపు|అల్జీమర్/, // Telugu
+  ],
+  personality_disorder: [
+    /\bpersonality disorder\b|\bborderline personality\b/i,
+    /व्यक्तित्व विकार/,
+    /ஆளுமைக் கோளாறு/,
+    /వ్యక్తిత్వ లోపం/,
+  ],
+  sexual_disorder: [
+    /\bsexual\b.{0,20}\b(problem|dysfunction|disorder|issue)\b/i,
+    /यौन समस्या|यौन विकार/,
+    /பாலியல் பிரச்சனை/,
+    /లైంగిక సమస్య/,
+  ],
+  autism: [/\bautis(m|tic)\b/i, /ऑटिज़्म/, /ஆட்டிச/, /ఆటిజం/],
+  adhd: [/\bADHD\b|attention deficit/i],
+  ptsd: [/\bPTSD\b|post[\s-]?traumatic|\bflashbacks?\b/i],
 };
 
 export function matchSpecialties(text) {
   if (!text) return [];
   const tags = [];
-  for (const [tag, pattern] of Object.entries(INTENT_PATTERNS)) {
-    if (pattern.test(text)) tags.push(tag);
+  for (const [tag, patterns] of Object.entries(INTENT_PATTERNS)) {
+    if (patterns.some((pattern) => pattern.test(text))) tags.push(tag);
   }
   return tags;
 }
@@ -71,15 +114,27 @@ export function matchSpecialties(text) {
 // suggest a doctor — that reads as pushy for what might just be a passing
 // feeling. Only recommend when someone is explicitly asking for
 // professional help, or showing real distress/severity about it.
-const HELP_SEEKING_PATTERN =
-  /\b(doctors?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i;
+// English loanwords like "doctor"/"appointment" are so commonly code-mixed
+// into Hindi/Tamil/Telugu sentences as-is that the English pattern already
+// catches most romanized requests — these add the native-script forms for
+// when someone types in their own script instead.
+const HELP_SEEKING_PATTERNS = [
+  /\b(doctors?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i,
+  /डॉक्टर|मनोचिकित्सक|मनोवैज्ञानिक|विशेषज्ञ|काउंसलर/, // Hindi
+  /மருத்துவர்|நிபுணர்|ஆலோசகர்/, // Tamil
+  /డాక్టర్|వైద్యుడు|నిపుణుడు|కౌన్సెలర్/, // Telugu
+];
 
-const CONCERN_PATTERN =
-  /\bcan'?t (?:take|handle|cope|stop|sleep|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do (?:anymore)?|really (?:struggling|bad|hard)|\bscares? me\b|\bi'?m worried\b/i;
+const CONCERN_PATTERNS = [
+  /\bcan'?t (?:take|handle|cope|stop|sleep|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do (?:anymore)?|really (?:struggling|bad|hard)|\bscares? me\b|\bi'?m worried\b/i,
+  /बर्दाश्त नहीं|हमेशा|हर समय|लगातार|समझ नहीं आ रहा|क्या करूं|बहुत बुरा|अकेला महसूस/, // Hindi
+  /தாங்க முடியல|எப்போதும்|தொடர்ந்து|தெரியல|மிகவும் மோசமா|தனியா உணர்/, // Tamil
+  /భరించలేక|ఎప్పుడూ|నిరంతరం|తెలియడం లేదు|చాలా చెడ్డగా|ఒంటరిగా అనిపిస్తుంది/, // Telugu
+];
 
 export function wantsDoctorHelp(text) {
   if (!text) return false;
-  return HELP_SEEKING_PATTERN.test(text) || CONCERN_PATTERN.test(text);
+  return HELP_SEEKING_PATTERNS.some((p) => p.test(text)) || CONCERN_PATTERNS.some((p) => p.test(text));
 }
 
 export function getDoctorsForSpecialties(tags, limit = 2) {

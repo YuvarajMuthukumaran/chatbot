@@ -59,8 +59,9 @@ router.post("/chat", async (req, res) => {
 
   // Hard rule: crisis detection runs deterministically, before and
   // independent of any model call. It is never left to the model alone.
-  if (detectCrisis(message)) {
-    const reply = buildCrisisReply(region);
+  const crisisLang = detectCrisis(message);
+  if (crisisLang) {
+    const reply = buildCrisisReply(region, crisisLang);
     appendTurn(sessionId, "user", message);
     appendTurn(sessionId, "model", reply);
     send({ text: reply, crisis: true });
