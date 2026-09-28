@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSession, appendTurn, markSpecialtiesSuggested } from "../lib/sessionStore.js";
+import { getSession, appendTurn } from "../lib/sessionStore.js";
 import { detectCrisis } from "../lib/crisisDetection.js";
 import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
@@ -107,23 +107,23 @@ router.post("/chat", async (req, res) => {
     return finish();
   }
 
-  // Best-effort doctor recommendation: only for specialties not already
-  // surfaced this session, so it's mentioned once, not every relevant turn.
-  // Also gated on wantsDoctorHelp — merely naming a feeling ("I feel
-  // anxious") shouldn't trigger a referral; only explicit help-seeking or
-  // real distress/severity should. That gate looks at the current message
-  // only (the concern has to be happening now), but which specialty it
-  // matches is looked up across the recent conversation too — someone
-  // saying "I don't know what to do anymore" without repeating "anxiety"
-  // should still surface an anxiety specialist if that's what they named
-  // a couple turns earlier.
+  // Best-effort doctor recommendation — gated on wantsDoctorHelp: merely
+  // naming a feeling ("I feel anxious") shouldn't trigger a referral; only
+  // explicit help-seeking or real distress/severity should. That gate looks
+  // at the current message only (the concern has to be happening now), but
+  // which specialty it matches is looked up across the recent conversation
+  // too — someone saying "I don't know what to do anymore" without
+  // repeating "anxiety" should still surface an anxiety specialist if
+  // that's what they named a couple turns earlier. Deliberately NOT deduped
+  // by specialty across the session: if someone explicitly asks again later
+  // ("best doctor for ocd"), they get the cards again too — suppressing a
+  // repeat ask read as broken (the LLM still remembers and names the same
+  // doctors from earlier context, just without the cards), not considerate.
   const recentContext = session.history
     .slice(-8)
     .map((turn) => turn.text)
     .join(" ");
-  const matchedTags = wantsDoctorHelp(message)
-    ? matchSpecialties(`${recentContext} ${message}`).filter((tag) => !session.suggestedSpecialties.has(tag))
-    : [];
+  const matchedTags = wantsDoctorHelp(message) ? matchSpecialties(`${recentContext} ${message}`) : [];
   const matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
   const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
 
@@ -151,7 +151,6 @@ router.post("/chat", async (req, res) => {
 
   appendTurn(sessionId, "user", message);
   appendTurn(sessionId, "model", result.text);
-  if (matchedTags.length) markSpecialtiesSuggested(sessionId, matchedTags);
   if (matchedDoctors.length) {
     send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
   }

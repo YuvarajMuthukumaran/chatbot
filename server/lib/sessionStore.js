@@ -9,7 +9,6 @@ export function createSession() {
     history: [],
     profile: {},
     createdAt: Date.now(),
-    suggestedSpecialties: new Set(),
   });
   return id;
 }
@@ -28,12 +27,6 @@ export function setProfile(id, profile) {
   const session = sessions.get(id);
   if (!session) return;
   session.profile = { ...session.profile, ...profile };
-}
-
-export function markSpecialtiesSuggested(id, tags) {
-  const session = sessions.get(id);
-  if (!session) return;
-  for (const tag of tags) session.suggestedSpecialties.add(tag);
 }
 
 export function deleteSession(id) {
