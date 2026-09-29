@@ -24,7 +24,7 @@ function recordError(err, status, model) {
 
 function getClient() {
   if (!client) {
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = "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";
     if (!apiKey) {
       throw new Error("GROQ_API_KEY is not set. Add it to server/.env");
     }
