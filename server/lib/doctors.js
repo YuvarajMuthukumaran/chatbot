@@ -156,6 +156,14 @@ export function getDoctorsForSpecialties(tags, limit = 2) {
   return scored.slice(0, limit).map((x) => x.doctor);
 }
 
+// Fallback for real help-seeking that doesn't map to any tagged specialty
+// (e.g. "aggression" isn't in INTENT_PATTERNS) — rather than surfacing no
+// one, point to the one doctor whose own listed focus is explicitly general
+// ("Holistic treatment approach") rather than a specific named condition.
+export function getGeneralistDoctor() {
+  return DOCTORS.filter((d) => d.name === "Dr. Anu Yadav");
+}
+
 export function buildDoctorContextNote(doctors) {
   const lines = doctors
     .map((d) => `- ${d.name} (${d.role})${d.focus ? `: ${d.focus}` : ""}`)

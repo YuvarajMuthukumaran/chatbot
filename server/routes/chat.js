@@ -3,7 +3,13 @@ import { getSession, appendTurn } from "../lib/sessionStore.js";
 import { detectCrisis } from "../lib/crisisDetection.js";
 import { buildCrisisReply } from "../lib/crisisTemplate.js";
 import { streamReply } from "../lib/llmClient.js";
-import { matchSpecialties, getDoctorsForSpecialties, buildDoctorContextNote, wantsDoctorHelp } from "../lib/doctors.js";
+import {
+  matchSpecialties,
+  getDoctorsForSpecialties,
+  getGeneralistDoctor,
+  buildDoctorContextNote,
+  wantsDoctorHelp,
+} from "../lib/doctors.js";
 import { handleHmsTurn } from "../lib/hmsFlow.js";
 import { handleBookingTurn } from "../lib/bookingFlow.js";
 import { looksLikeAbandonment } from "../lib/conversationEscape.js";
@@ -123,8 +129,15 @@ router.post("/chat", async (req, res) => {
     .slice(-8)
     .map((turn) => turn.text)
     .join(" ");
-  const matchedTags = wantsDoctorHelp(message) ? matchSpecialties(`${recentContext} ${message}`) : [];
-  const matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
+  const wantsHelp = wantsDoctorHelp(message);
+  const matchedTags = wantsHelp ? matchSpecialties(`${recentContext} ${message}`) : [];
+  let matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
+  // Someone is clearly asking for help, but the concern named (e.g.
+  // "aggression") doesn't map to any tagged specialty — fall back to the
+  // generalist rather than surfacing no one at all.
+  if (wantsHelp && !matchedDoctors.length) {
+    matchedDoctors = getGeneralistDoctor();
+  }
   const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
 
   const result = await streamReply({
