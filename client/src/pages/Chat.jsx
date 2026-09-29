@@ -99,6 +99,10 @@ export default function Chat() {
         next[next.length - 1] = { role: "model", text: fullText, crisis: doneMeta?.crisis, doctors: doneMeta?.doctors };
         return next;
       });
+      // A functional exchange (booking, HMS lookup) is transactional, not
+      // emotional — reset the mascot's mood instead of letting one from
+      // several turns ago resurface once doctor-mode/this turns off.
+      if (doneMeta?.functional) setMood("neutral");
       setStreaming(false);
     };
     const checkCompletion = () => {

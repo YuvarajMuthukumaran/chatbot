@@ -97,7 +97,11 @@ router.post("/chat", async (req, res) => {
   if (hmsResult.handled) {
     appendTurn(sessionId, "user", message);
     appendTurn(sessionId, "model", hmsResult.reply);
-    send({ text: hmsResult.reply });
+    // `functional: true` tells the client this was a transactional exchange,
+    // not part of the emotional conversation — it should reset the mascot's
+    // mood rather than let a mood from several turns ago resurface once
+    // doctor-mode (or this) turns off.
+    send({ text: hmsResult.reply, functional: true });
     return finish();
   }
 
@@ -109,7 +113,7 @@ router.post("/chat", async (req, res) => {
   if (bookingResult.handled) {
     appendTurn(sessionId, "user", message);
     appendTurn(sessionId, "model", bookingResult.reply);
-    send({ text: bookingResult.reply });
+    send({ text: bookingResult.reply, functional: true });
     return finish();
   }
 
@@ -165,6 +169,10 @@ router.post("/chat", async (req, res) => {
   appendTurn(sessionId, "user", message);
   appendTurn(sessionId, "model", result.text);
   if (matchedDoctors.length) {
+    // Remembered so a later vague reference ("book with either of them")
+    // can resolve against whoever was actually just shown, instead of
+    // requiring a name the booking flow has no way to already know.
+    session.lastRecommendedDoctors = matchedDoctors;
     send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
   }
   finish();

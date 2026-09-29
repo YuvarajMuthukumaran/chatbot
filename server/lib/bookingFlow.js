@@ -165,7 +165,31 @@ function extractRole(text) {
   return m ? m[1] : null;
 }
 
-async function attemptSearch(message, { allowRawNameFallback = false } = {}) {
+// Matches "book with either of them", "any one of them", "the first one",
+// etc. — someone referring back to doctors just shown as recommendation
+// cards, rather than naming anyone. Checked before name/specialty/role
+// extraction since a vague reference like this won't match those anyway,
+// and it needs `session` (for the just-shown list), which those don't.
+const VAGUE_DOCTOR_REFERENCE =
+  /\b(any one|either one|one of them|either of them|any of them|both of them|both doctors|the first one|the second one|that one)\b/i;
+
+async function resolveRecommendedDoctors(session) {
+  const recommended = session?.lastRecommendedDoctors;
+  if (!recommended?.length) return null;
+  const results = [];
+  for (const d of recommended) {
+    const found = await searchDoctors({ search: d.name });
+    if (found?.length) results.push(found[0]);
+  }
+  return results.length ? results : null;
+}
+
+async function attemptSearch(message, { allowRawNameFallback = false, session = null } = {}) {
+  if (session && VAGUE_DOCTOR_REFERENCE.test(message)) {
+    const recommended = await resolveRecommendedDoctors(session);
+    if (recommended) return recommended;
+  }
+
   const name = extractDoctorName(message);
   if (name) return searchDoctors({ search: name });
 
@@ -237,14 +261,14 @@ async function offerSlots(state, doctorId, date) {
 
 // ---- book ----
 
-async function handleBookFlow(state, message) {
+async function handleBookFlow(state, message, session) {
   switch (state.stage) {
     case null:
     case undefined:
-      return resolveDoctorCandidates(state, await attemptSearch(message));
+      return resolveDoctorCandidates(state, await attemptSearch(message, { session }));
 
     case "awaiting_search":
-      return resolveDoctorCandidates(state, await attemptSearch(message, { allowRawNameFallback: true }));
+      return resolveDoctorCandidates(state, await attemptSearch(message, { allowRawNameFallback: true, session }));
 
     case "choosing_doctor": {
       const picked = pickDoctor(state.candidates, message);
@@ -460,7 +484,7 @@ async function handleRescheduleFlow(state, message) {
 export async function handleBookingTurn(session, message) {
   const state = getState(session);
 
-  if (state.flow === "book") return { handled: true, reply: await handleBookFlow(state, message) };
+  if (state.flow === "book") return { handled: true, reply: await handleBookFlow(state, message, session) };
   if (state.flow === "view") return { handled: true, reply: await handleViewFlow(state, message) };
   if (state.flow === "cancel") return { handled: true, reply: await handleCancelFlow(state, message) };
   if (state.flow === "reschedule") return { handled: true, reply: await handleRescheduleFlow(state, message) };
@@ -470,7 +494,7 @@ export async function handleBookingTurn(session, message) {
 
   if (intent === "book") {
     state.flow = "book";
-    return { handled: true, reply: await handleBookFlow(state, message) };
+    return { handled: true, reply: await handleBookFlow(state, message, session) };
   }
   if (intent === "myBookings") {
     state.flow = "view";
