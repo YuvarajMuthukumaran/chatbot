@@ -132,9 +132,17 @@ const CONCERN_PATTERNS = [
   /భరించలేక|ఎప్పుడూ|నిరంతరం|తెలియడం లేదు|చాలా చెడ్డగా|ఒంటరిగా అనిపిస్తుంది/, // Telugu
 ];
 
+// "why do you always suggest grounding" trips CONCERN_PATTERNS' chronicity
+// check ("always") even though it's commentary on the bot's own behavior,
+// not the user's — an explicit ask ("I need a doctor") still overrides this,
+// only the fuzzy concern-word fallback gets suppressed by it.
+const BOT_META_COMMENTARY = /\b(?:why (?:do|does|would|are) you|do you (?:always|only|ever)|you always (?:suggest|say|recommend|tell|give))\b/i;
+
 export function wantsDoctorHelp(text) {
   if (!text) return false;
-  return HELP_SEEKING_PATTERNS.some((p) => p.test(text)) || CONCERN_PATTERNS.some((p) => p.test(text));
+  if (HELP_SEEKING_PATTERNS.some((p) => p.test(text))) return true;
+  if (BOT_META_COMMENTARY.test(text)) return false;
+  return CONCERN_PATTERNS.some((p) => p.test(text));
 }
 
 export function getDoctorsForSpecialties(tags, limit = 2) {
