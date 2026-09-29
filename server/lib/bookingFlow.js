@@ -148,8 +148,13 @@ function isDateLikeWord(word) {
 // so a "for X" match is rejected whenever X reads as a date word or already
 // matches a known specialty, leaving it to those searches instead.
 function extractDoctorName(text) {
+  // "for" can precede a title too ("appointment for dr anu") — since "for"
+  // often appears earlier in the sentence than "dr", the regex engine would
+  // otherwise commit to the "for" branch first and swallow "dr" into the
+  // captured name (then reject the whole thing as a bare title). Skipping an
+  // optional title right after "with/see/meet/for" avoids that.
   const m = text.match(
-    /\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)|\b(?:with|see|meet|for)\s+([a-z]+(?:\s+[a-z]+)?)\b/i
+    /\b(?:dr|ms|mr)\.?\s+([a-z]+(?:\s+[a-z]+)?)|\b(?:with|see|meet|for)\s+(?:(?:dr|ms|mr)\.?\s+)?([a-z]+(?:\s+[a-z]+)?)\b/i
   );
   if (!m) return null;
   const name = (m[1] || m[2] || "").trim();
