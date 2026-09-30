@@ -26,7 +26,7 @@ function recordError(err, status, model) {
 // app runs with no environment setup. GROQ_API_KEY, when set, overrides it
 // (an empty GROQ_API_KEY means "no key" — the tests use that). Before
 // production, empty this again, rotate the key, and use the environment only.
-const TEST_GROQ_API_KEY = "";
+const TEST_GROQ_API_KEY = "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";
 
 export function getApiKey() {
   return process.env.GROQ_API_KEY ?? TEST_GROQ_API_KEY;
