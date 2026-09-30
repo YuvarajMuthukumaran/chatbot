@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 import { normalizeMarkdown } from "../lib/markdown.js";
 
 const markdownComponents = {
@@ -8,11 +9,18 @@ const markdownComponents = {
   ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
   li: ({ children }) => <li>{children}</li>,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-  a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-blue-400 underline-offset-2">
-      {children}
-    </a>
-  ),
+  // In-app links (e.g. "see everyone" -> /doctors?specialty=...) stay in
+  // this tab — the conversation is kept, so coming back loses nothing.
+  a: ({ children, href }) =>
+    href?.startsWith("/") ? (
+      <Link to={href} className="underline decoration-blue-400 underline-offset-2">
+        {children}
+      </Link>
+    ) : (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-blue-400 underline-offset-2">
+        {children}
+      </a>
+    ),
   h1: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
   h2: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
   h3: ({ children }) => <p className="mb-2 font-semibold last:mb-0">{children}</p>,
@@ -20,7 +28,7 @@ const markdownComponents = {
   code: ({ children }) => <code className="rounded bg-black/5 px-1 py-0.5 text-[0.9em]">{children}</code>,
 };
 
-export default function ChatBubble({ role, text, crisis, doctors }) {
+export default function ChatBubble({ role, text, crisis, failed, doctors, onBookDoctor }) {
   const isUser = role === "user";
   return (
     <motion.div
@@ -31,12 +39,14 @@ export default function ChatBubble({ role, text, crisis, doctors }) {
       className={`flex ${isUser ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-[0.95em] leading-relaxed ${
+        className={`max-w-[85%] rounded-2xl px-4 py-3 text-[0.95em] leading-relaxed sm:max-w-[80%] ${
           isUser
             ? "whitespace-pre-wrap bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-900/15"
             : crisis
               ? "border border-crisis/30 bg-crisis/5 text-red-900 shadow-sm"
-              : "border border-blue-100 bg-blue-50 text-slate-800 shadow-sm"
+              : failed
+                ? "border border-slate-200 bg-slate-50 text-slate-600 shadow-sm"
+                : "border border-blue-100 bg-blue-50 text-slate-800 shadow-sm"
         }`}
       >
         {isUser ? (
@@ -52,14 +62,25 @@ export default function ChatBubble({ role, text, crisis, doctors }) {
                       <img
                         src={d.photo}
                         alt={d.name}
+                        loading="lazy"
                         className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-blue-100"
                       />
                     ) : (
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-700 ring-1 ring-blue-100">
-                        {d.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*/i, "").charAt(0)}
+                        {d.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*(\([^)]*\)\s*)?/i, "").charAt(0)}
                       </div>
                     )}
-                    <div className="min-w-0 truncate text-sm font-semibold text-blue-900">{d.name}</div>
+                    <div className="min-w-0 flex-1 truncate text-sm font-semibold text-blue-900">{d.name}</div>
+                    {onBookDoctor && (
+                      <button
+                        type="button"
+                        onClick={() => onBookDoctor(d.name)}
+                        className="shrink-0 rounded-full bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                        aria-label={`Book an appointment with ${d.name}`}
+                      >
+                        Book
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

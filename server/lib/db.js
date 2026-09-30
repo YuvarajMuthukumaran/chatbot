@@ -1,19 +1,17 @@
 import { MongoClient } from "mongodb";
 
-// TEMP: mock DB only, move to env before prod
-// Direct (non-+srv) form of the Atlas connection string — the driver's
-// mongodb+srv:// scheme needs a raw SRV/TXT DNS lookup at connect time,
-// which some sandboxed/restricted networks block outright even though
-// normal HTTPS traffic works fine. This spells out the actual shard hosts
-// and replica set (resolved once via DNS-over-HTTPS) so it connects the
-// same way in any environment. Original form, for reference:
-// mongodb+srv://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@cluster0.dptw3ke.mongodb.net/?appName=Cluster0
-// tls=true is added explicitly here — mongodb+srv:// implies TLS
-// automatically per the driver spec, but a plain mongodb:// URI does not,
-// and Atlas refuses unencrypted connections outright.
-const MONGODB_URI =
-  "mongodb://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@ac-l94jddb-shard-00-00.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-01.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-02.dptw3ke.mongodb.net:27017/?replicaSet=atlas-p5qr7i-shard-0&authSource=admin&retryWrites=true&w=majority&tls=true&appName=Cluster0";
-const DB_NAME = "tulasi_test";
+// Test deployment: paste the test database's connection string between the
+// quotes below so the app runs with no environment setup; MONGODB_URI, when
+// set, overrides it. Before production, empty this again, rotate the
+// password, and use the environment only.
+//
+// Tip: the direct (non-+srv) form works on networks that block the SRV/TXT
+// DNS lookup mongodb+srv:// needs. tls=true must be explicit in that form,
+// since only mongodb+srv:// implies it, and Atlas refuses unencrypted
+// connections.
+const TEST_MONGODB_URI = "";
+const MONGODB_URI = process.env.MONGODB_URI ?? TEST_MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB || "tulasi_test";
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
@@ -56,6 +54,12 @@ export async function connectDB() {
   if (db) return db;
   if (connectingPromise) return connectingPromise;
 
+  if (!MONGODB_URI) {
+    lastError = "MONGODB_URI is not set. Add it to server/.env (or the host's environment settings).";
+    console.error(`[db] ${lastError} Doctor search and appointment booking will be unavailable.`);
+    return null;
+  }
+
   connectingPromise = (async () => {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -85,6 +89,14 @@ export async function connectDB() {
 /** Returns the connected db handle, or null if not (yet) connected. */
 export function getDb() {
   return db;
+}
+
+/** Swaps in a database handle directly (an in-memory fake, for tests and
+ * `npm run dev:sandbox`) so that local experiments never write test bookings
+ * into the shared database the deployed app also uses. */
+export async function setDb(database) {
+  db = database;
+  if (database) await ensureIndexes(database);
 }
 
 /** Diagnostic only — the message from the most recent failed connection attempt. */

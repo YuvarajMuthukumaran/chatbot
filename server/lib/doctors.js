@@ -137,6 +137,34 @@ const INTENT_PATTERNS = {
   ],
 };
 
+// How each specialty tag reads to a person (chat replies show these instead
+// of raw tags like "geriatric_dementia"). Mirrored in client/src/lib/specialties.js.
+export const SPECIALTY_LABELS = {
+  ocd: "OCD",
+  depression: "Depression",
+  anxiety: "Anxiety",
+  bipolar: "Bipolar disorder",
+  schizophrenia: "Schizophrenia",
+  addiction: "Addiction",
+  child_adolescent: "Child & adolescent",
+  geriatric_dementia: "Dementia & elderly care",
+  personality_disorder: "Personality disorders",
+  sexual_disorder: "Sexual health",
+  autism: "Autism",
+  adhd: "ADHD",
+  ptsd: "PTSD",
+  sleep_disorder: "Sleep problems",
+  phobia: "Phobias",
+  trauma: "Trauma",
+  relationship: "Relationships",
+  stress: "Stress",
+  rehabilitation: "Rehabilitation",
+};
+
+export function specialtyLabel(tag) {
+  return SPECIALTY_LABELS[tag] || String(tag).replace(/_/g, " ");
+}
+
 export function matchSpecialties(text) {
   if (!text) return [];
   const tags = [];
@@ -215,5 +243,5 @@ export function buildDoctorContextNote(doctors) {
   return `Context only, not something to act on every time: based on what the user just shared, these Tulasi Health Care specialists' focus areas seem relevant —
 ${lines}
 
-Only mention this if it fits naturally in your reply right now; don't force it in, and don't present it as a diagnosis. If you do bring it up, phrase it as an option ("if it'd help, one of our specialists focuses on exactly this — want their contact number?") rather than an instruction. It's completely fine to skip mentioning it if it doesn't fit the moment. Never name a doctor who isn't listed above, and never describe a specific booking process — offer the contact number, not booking steps.`;
+Only mention this if it fits naturally in your reply right now; don't force it in, and don't present it as a diagnosis. If you do bring it up, phrase it as an option ("if it'd help, one of our specialists focuses on exactly this") rather than an instruction. It's completely fine to skip mentioning it if it doesn't fit the moment. The person will see these specialists as cards (photo, name, and a Book button) right under your reply, so don't list their details yourself; if booking comes up, they can tap Book or just say they'd like to book. Never name a doctor who isn't listed above, and never describe any other booking process.`;
 }

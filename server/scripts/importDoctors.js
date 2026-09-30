@@ -3,6 +3,8 @@
 // `doctors` collection. Safe to re-run: upserts on (name, hospital), the
 // same unique key the collection's index enforces, so re-running never
 // creates duplicates and just refreshes the data.
+import "dotenv/config"; // first, so MONGODB_URI is set before db.js reads it
+import { pathToFileURL } from "node:url";
 import { connectDB } from "../lib/db.js";
 import { DOCTORS } from "../lib/doctors.js";
 
@@ -42,8 +44,10 @@ export async function importDoctors() {
   return { total: DOCTORS.length, upserted, updated: matched };
 }
 
-// Allow running directly: node scripts/importDoctors.js
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Allow running directly: node scripts/importDoctors.js. (Comparing against
+// a hand-built `file://${argv[1]}` string never matched on Windows — or any
+// path with a space in it — so the script used to exit silently there.)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   importDoctors()
     .then((summary) => {
       console.log(`Doctor import complete: ${summary.upserted} inserted, ${summary.updated} updated, ${summary.total} total.`);

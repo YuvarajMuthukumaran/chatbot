@@ -1,41 +1,14 @@
 import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import sessionRoutes from "./routes/session.js";
-import chatRoutes from "./routes/chat.js";
-import doctorsRoutes from "./routes/doctors.js";
-import appointmentsRoutes from "./routes/appointments.js";
-import { connectDB, getDb, getLastDbError } from "./lib/db.js";
-import { getLastLlmError } from "./lib/llmClient.js";
+import { app } from "./app.js";
+import { connectDB } from "./lib/db.js";
 
-const app = express();
-const port = process.env.PORT || 8787;
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app")
-  .split(",")
-  .map((o) => o.trim());
+const port = process.env.PORT || 8788;
 
-app.use(cors({ origin: allowedOrigins }));
-app.use(express.json({ limit: "32kb" }));
-
-app.get("/api/health", (req, res) => res.json({ ok: true }));
-// Diagnostic only, while wiring up the test MongoDB connection — no
-// credentials exposed, just the connection state and last error message.
-app.get("/api/db-status", (req, res) => res.json({ connected: !!getDb(), lastError: getLastDbError() }));
-// Diagnostic only — the chat-facing fallback text is deliberately vague, so
-// this is the only way to tell a rate limit apart from an auth/config
-// problem without shell access to the deployment. No key material exposed.
-app.get("/api/llm-status", (req, res) =>
-  res.json({ apiKeyConfigured: !!process.env.GROQ_API_KEY, lastError: getLastLlmError() })
-);
-
-app.use("/api", sessionRoutes);
-app.use("/api", chatRoutes);
-app.use("/api", doctorsRoutes);
-app.use("/api", appointmentsRoutes);
-
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: "Something went wrong. Please try again shortly." });
+// Last line of defense: every route handles its own async errors, but if
+// one ever slips through, log it rather than letting Node exit — a crash
+// would also wipe every in-memory chat session.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
 });
 
 app.listen(port, () => {

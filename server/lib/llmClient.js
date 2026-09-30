@@ -22,11 +22,21 @@ function recordError(err, status, model) {
   };
 }
 
+// Test deployment: paste the test Groq key between the quotes below so the
+// app runs with no environment setup. GROQ_API_KEY, when set, overrides it
+// (an empty GROQ_API_KEY means "no key" — the tests use that). Before
+// production, empty this again, rotate the key, and use the environment only.
+const TEST_GROQ_API_KEY = "";
+
+export function getApiKey() {
+  return process.env.GROQ_API_KEY ?? TEST_GROQ_API_KEY;
+}
+
 function getClient() {
   if (!client) {
-    const apiKey = "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";
+    const apiKey = getApiKey();
     if (!apiKey) {
-      throw new Error("GROQ_API_KEY is not set. Add it to server/.env");
+      throw new Error("GROQ_API_KEY is not set. Add it to server/.env (or the host's environment settings).");
     }
     client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
   }
@@ -48,16 +58,41 @@ const MODEL_CHAIN = [
 
 const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS) || 20;
 
-function toChatMessages(history, message, extraContext) {
+const CONNECTION_TROUBLE =
+  "I'm having a little trouble connecting right now. Please try again in a moment — and if this keeps happening, know that Tulasi Health Care's team is always reachable directly too.";
+
+const PRIVATE_BLOCK_NOTE =
+  "Note: at this point the user used Tulasi's appointment or patient-records feature, which a separate system handles. Those details (names, phone numbers, medical records) are deliberately not shown to you — don't guess at them or ask for them.";
+
+// Turns from the deterministic booking/HMS flows are marked private: they
+// hold names, phone numbers, and (for HMS) real diagnoses and prescriptions,
+// none of which should leave this server for a third-party model. Each run of
+// consecutive private turns is replaced by one system note, plus any PII-free
+// summary the flow attached (e.g. which doctor and date were booked), so the
+// model keeps enough context to follow the conversation.
+export function toChatMessages(history, message, extraContext) {
   const messages = [{ role: "system", content: SYSTEM_INSTRUCTION }];
   if (extraContext) messages.push({ role: "system", content: extraContext });
-  messages.push(
-    ...history.slice(-MAX_HISTORY_TURNS).map((turn) => ({
-      role: turn.role === "model" ? "assistant" : "user",
-      content: turn.text,
-    })),
-    { role: "user", content: message }
-  );
+
+  let privateNotes = null;
+  const flushPrivate = () => {
+    if (!privateNotes) return;
+    messages.push({ role: "system", content: [PRIVATE_BLOCK_NOTE, ...privateNotes].join(" ") });
+    privateNotes = null;
+  };
+
+  for (const turn of history.slice(-MAX_HISTORY_TURNS)) {
+    if (turn.private) {
+      privateNotes ??= [];
+      if (turn.llmNote) privateNotes.push(turn.llmNote);
+      continue;
+    }
+    flushPrivate();
+    messages.push({ role: turn.role === "model" ? "assistant" : "user", content: turn.text });
+  }
+  flushPrivate();
+
+  messages.push({ role: "user", content: message });
   return messages;
 }
 
@@ -78,7 +113,17 @@ function getErrorStatus(err) {
  * bound latency/cost as a conversation grows. `history` is
  * [{ role: 'user' | 'model', text }]. */
 export async function streamReply({ history, message, onChunk, abortSignal, extraContext }) {
-  const ai = getClient();
+  let ai;
+  try {
+    ai = getClient();
+  } catch (err) {
+    // A missing key is a deployment misconfiguration, not a reason to take
+    // the process down (which would also wipe every in-memory session) —
+    // surface it via /api/llm-status and give the user the normal fallback.
+    recordError(err, null, null);
+    console.error(err.message);
+    return { ok: false, rateLimited: false, text: CONNECTION_TROUBLE };
+  }
   const messages = toChatMessages(history, message, extraContext);
 
   let lastErr = null;
@@ -136,7 +181,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
       return {
         ok: false,
         rateLimited: false,
-        text: "I'm having a little trouble connecting right now. Please try again in a moment — and if this keeps happening, know that Tulasi Health Care's team is always reachable directly too.",
+        text: CONNECTION_TROUBLE,
       };
     }
   }
@@ -145,6 +190,6 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
   return {
     ok: false,
     rateLimited: false,
-    text: "I'm having a little trouble connecting right now. Please try again in a moment — and if this keeps happening, know that Tulasi Health Care's team is always reachable directly too.",
+    text: CONNECTION_TROUBLE,
   };
 }

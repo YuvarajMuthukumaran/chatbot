@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createSession, setProfile, deleteSession } from "../lib/sessionStore.js";
 import { getCrisisResources } from "../lib/crisisResources.js";
+import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
 const region = process.env.CRISIS_REGION || "IN";
@@ -13,9 +14,12 @@ router.get("/crisis-resources", (req, res) => {
   res.json(getCrisisResources(region));
 });
 
-router.post("/session", (req, res) => {
-  const id = createSession();
-  const { name, mood } = req.body || {};
+// `history` (optional) restores context for a conversation the person can
+// still see but the server lost — e.g. after a restart or the host spinning
+// down an idle instance. See sessionStore.createSession for what's accepted.
+router.post("/session", limitByIp(limiters.session), (req, res) => {
+  const { name, mood, history } = req.body || {};
+  const id = createSession({ history });
   if (name || mood != null) {
     setProfile(id, { name, mood });
   }

@@ -1,8 +1,12 @@
-const API_BASE = import.meta.env.VITE_API_URL || "";
+import { API_BASE } from "./apiBase.js";
 
 async function handleJson(res) {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Something went wrong");
+  if (!res.ok) {
+    const err = new Error(data.error || "Something went wrong");
+    err.status = res.status; // e.g. 409 = that time was just taken
+    throw err;
+  }
   return data;
 }
 
@@ -21,7 +25,7 @@ export async function fetchSpecialties() {
 }
 
 export async function fetchDoctor(id) {
-  const res = await fetch(`${API_BASE}/api/doctors/${id}`);
+  const res = await fetch(`${API_BASE}/api/doctors/${encodeURIComponent(id)}`);
   return handleJson(res);
 }
 
@@ -47,12 +51,12 @@ export async function fetchMyAppointments(phone) {
 }
 
 export async function cancelAppointmentApi(id) {
-  const res = await fetch(`${API_BASE}/api/appointments/${id}/cancel`, { method: "PATCH" });
+  const res = await fetch(`${API_BASE}/api/appointments/${encodeURIComponent(id)}/cancel`, { method: "PATCH" });
   return handleJson(res);
 }
 
 export async function rescheduleAppointmentApi(id, { date, time }) {
-  const res = await fetch(`${API_BASE}/api/appointments/${id}`, {
+  const res = await fetch(`${API_BASE}/api/appointments/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ date, time }),

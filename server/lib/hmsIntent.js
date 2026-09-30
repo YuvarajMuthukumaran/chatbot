@@ -4,12 +4,19 @@
 // generic; could mean a college admission, an admission of guilt, etc.).
 const INTENT_PATTERNS = {
   admission: /\badmission status\b|\bam i (still )?admitted\b|\bstill admitted\b|\bhospital admission\b|\bmy admission status\b/i,
-  discharge: /\bdischarge summary\b|\bwhen (was|am) i discharged\b|\bmy discharge\b/i,
+  discharge: /\bdischarge summary\b|\bwhen (was|am|will) i (be )?discharged\b|\bmy discharge\b/i,
+  // A bare "my appointments" is NOT claimed here any more: since the booking
+  // system arrived it usually means upcoming bookings, so bookingIntent.js
+  // asks which one the person means instead of guessing.
   visits:
-    /\bmy (visits?|appointments?)\b|\b(visit|appointment) history\b|\blast \d+ (visits?|appointments?)\b|\bmy last (visit|appointment)\b|\brecent (visits?|appointments?)\b/i,
+    /\bmy (?:past |previous |recent )?visits?\b|\b(visit|appointment) history\b|\blast \d+ (visits?|appointments?)\b|\bmy last (visit|appointment)\b|\b(?:recent|past|previous) (visits?|appointments?)\b/i,
   prescription:
     /\bmy prescriptions?\b|\bwhat did the doctor prescribe\b|\bmedication history\b|\b(check|show|see|view|find) my medicines?\b|\bwhat medicines? (was i|were you) prescribed\b/i,
-  register: /\bregister (me|as a patient)\b|\bnew patient\b|\bfind my (patient id|uhid)\b/i,
+  findId: /\b(?:find|what(?:'s| is)|show|tell me) my (?:patient id|uhid)\b/i,
+  // Only an explicit request to register — not just "new patient", which
+  // also turns up in ordinary booking requests ("I'm a new patient, can I
+  // book with...").
+  register: /\bregister (?:me|myself|as a (?:new )?patient)\b|\b(?:new )?patient registration\b|\bhow (?:do|can) i register\b/i,
 };
 
 // "cancel/book/reschedule my appointment" are booking-system actions (see

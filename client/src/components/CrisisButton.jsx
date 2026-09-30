@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCrisisResources } from "../lib/crisisResources.js";
 
 export default function CrisisButton() {
   const [open, setOpen] = useState(false);
   const resources = getCrisisResources();
+  const triggerRef = useRef(null);
+  const closeRef = useRef(null);
+
+  // Keyboard and screen-reader basics for the one dialog that matters most:
+  // focus moves into it on open, Escape closes it, and focus returns to the
+  // button afterwards.
+  useEffect(() => {
+    if (!open) return undefined;
+    closeRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const trigger = triggerRef.current;
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [open]);
 
   return (
     <>
       <motion.button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
@@ -69,6 +89,7 @@ export default function CrisisButton() {
                 ))}
               </ul>
               <button
+                ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 className="mt-5 w-full rounded-full bg-blue-700 py-2.5 font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"

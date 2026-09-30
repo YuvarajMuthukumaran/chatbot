@@ -1,35 +1,48 @@
-const SESSION_KEY = "yuvaraj.sessionId";
-const PROFILE_KEY = "yuvaraj.profile";
+import { readJson, writeJson, remove } from "./storage.js";
+import { API_BASE } from "./apiBase.js";
 
-// In local dev, Vite's dev server proxies "/api" to the backend (see
-// vite.config.js) so a relative path works. A static production build has
-// no such proxy, so it needs the deployed backend's absolute URL instead —
-// set VITE_API_URL at build time (e.g. https://your-api.onrender.com).
-const API_BASE = import.meta.env.VITE_API_URL || "";
+// Kept on the device (localStorage) along with the saved conversation, so
+// someone can come back to it later — see transcript.js.
+const SESSION_KEY = "tulasi.sessionId";
+const PROFILE_KEY = "tulasi.profile";
 
-export async function startSession(profile) {
+// Earlier versions stored a session id under these keys without ever saving
+// the conversation it belonged to — nothing to carry over, so tidy them away.
+remove("yuvaraj.sessionId");
+remove("yuvaraj.profile");
+
+async function errorFrom(res, fallback) {
+  const data = await res.json().catch(() => ({}));
+  const err = new Error(data.error || fallback);
+  err.status = res.status;
+  return err;
+}
+
+/**
+ * @param {object} [profile]
+ * @param {{history?: Array<{role: string, text: string}>}} [options] - the
+ *   visible conversation, to restore context when the server lost the old
+ *   session (a restart, or the host spinning down while idle).
+ */
+export async function startSession(profile, { history } = {}) {
   const res = await fetch(`${API_BASE}/api/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(profile || {}),
+    body: JSON.stringify({ ...(profile || {}), ...(history?.length ? { history } : {}) }),
   });
-  if (!res.ok) throw new Error("Could not start a session");
+  if (!res.ok) throw await errorFrom(res, "Could not start a session");
   const data = await res.json();
-  localStorage.setItem(SESSION_KEY, data.sessionId);
-  if (profile) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  writeJson(SESSION_KEY, data.sessionId);
+  if (profile) writeJson(PROFILE_KEY, profile);
   return data;
 }
 
 export function getStoredSessionId() {
-  return localStorage.getItem(SESSION_KEY);
+  return readJson(SESSION_KEY);
 }
 
 export function getStoredProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
-  } catch {
-    return null;
-  }
+  return readJson(PROFILE_KEY);
 }
 
 export async function fetchCrisisResources() {
@@ -38,14 +51,27 @@ export async function fetchCrisisResources() {
   return res.json();
 }
 
-export function clearLocalSession() {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(PROFILE_KEY);
+/** Forgets the conversation on the server too (best-effort). */
+export async function endSession(sessionId) {
+  remove(SESSION_KEY);
+  if (!sessionId) return;
+  try {
+    await fetch(`${API_BASE}/api/session/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+  } catch {
+    // the server forgets idle sessions on its own anyway
+  }
 }
 
 /**
  * Streams a chat reply via SSE-over-POST.
- * @param {{sessionId: string, message: string, onChunk: (text: string) => void, onDone: (info: {crisis?: boolean, error?: boolean}) => void, onError: (err: Error) => void}} args
+ * @param {object} args
+ * @param {string} args.sessionId
+ * @param {string} args.message
+ * @param {(text: string, event: object) => void} args.onChunk - `event` is
+ *   the whole server event, so flags like `crisis` are known the moment the
+ *   text arrives (a crisis reply is shown at once, not typed out).
+ * @param {(info: {crisis?: boolean, error?: boolean, functional?: boolean, sensitive?: boolean, doctors?: object[], quickReplies?: string[]}) => void} args.onDone
+ * @param {(err: Error) => void} args.onError
  */
 export async function sendMessageStream({ sessionId, message, onChunk, onDone, onError }) {
   try {
@@ -57,21 +83,18 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
 
     if (res.status === 404) {
       // The in-memory session store doesn't survive a server restart, so a
-      // sessionId cached in localStorage from before one can go stale.
+      // stored sessionId can go stale.
       const err = new Error("Session expired");
       err.sessionExpired = true;
       throw err;
     }
 
-    if (!res.ok || !res.body) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "The chat request failed.");
-    }
+    if (!res.ok || !res.body) throw await errorFrom(res, "The chat request failed.");
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let meta = {};
+    const meta = {};
 
     while (true) {
       const { value, done } = await reader.read();
@@ -88,11 +111,13 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
         if (payload === "[DONE]") continue;
         try {
           const parsed = JSON.parse(payload);
-          if (parsed.text) onChunk(parsed.text);
           if (parsed.crisis) meta.crisis = true;
           if (parsed.error) meta.error = true;
-          if (parsed.doctors) meta.doctors = parsed.doctors;
           if (parsed.functional) meta.functional = true;
+          if (parsed.sensitive) meta.sensitive = true;
+          if (parsed.doctors) meta.doctors = parsed.doctors;
+          if (parsed.quickReplies) meta.quickReplies = parsed.quickReplies;
+          if (parsed.text) onChunk(parsed.text, parsed);
         } catch {
           // ignore malformed chunk
         }

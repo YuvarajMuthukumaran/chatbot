@@ -6,49 +6,46 @@ import {
   cancelAppointmentApi,
   rescheduleAppointmentApi,
 } from "../lib/bookingApi.js";
+import { localIsoDate, addDaysIso, formatSlot, formatDay, cleanPhoneInput, tenDigitPhone } from "../lib/format.js";
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
+// Mirrors BOOKING_WINDOW_DAYS on the server.
+const BOOKING_WINDOW_DAYS = 90;
 
-function formatSlot(t) {
-  const [h, m] = t.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 === 0 ? 12 : h % 12;
-  return `${hour}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-function AppointmentCard({ appt, onCancelled, onRescheduled }) {
+function AppointmentCard({ appt, isPast, onCancelled, onRescheduled }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [rescheduling, setRescheduling] = useState(false);
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(localIsoDate());
   const [slots, setSlots] = useState(null);
   const [time, setTime] = useState(null);
 
   const isCancelled = appt.status === "cancelled";
-
-  const openReschedule = () => {
-    setRescheduling(true);
-    setDate(todayIso());
-    setSlots(null);
-    setTime(null);
-  };
+  const status = isCancelled ? "Cancelled" : isPast ? "Past" : "Booked";
 
   const loadSlots = async (newDate) => {
     setDate(newDate);
     setSlots(null);
     setTime(null);
+    setError(null);
+    if (!newDate) return;
     try {
       const data = await fetchSlots(appt.doctorId, newDate);
       setSlots(data.slots);
     } catch (err) {
+      setSlots([]);
       setError(err.message);
     }
   };
 
+  const openReschedule = () => {
+    setRescheduling(true);
+    // Load today's times straight away — before, the picker showed loading
+    // placeholders forever until a different date was chosen.
+    loadSlots(localIsoDate());
+  };
+
   const handleCancel = async () => {
-    if (!window.confirm(`Cancel your appointment with ${appt.doctorName} on ${appt.date} at ${formatSlot(appt.time)}?`)) return;
+    if (!window.confirm(`Cancel your appointment with ${appt.doctorName} on ${formatDay(appt.date)} at ${formatSlot(appt.time)}?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -71,10 +68,13 @@ function AppointmentCard({ appt, onCancelled, onRescheduled }) {
       setRescheduling(false);
     } catch (err) {
       setError(err.message || "Could not reschedule this appointment.");
+      if (err.status === 409) loadSlots(date);
     } finally {
       setBusy(false);
     }
   };
+
+  const today = localIsoDate();
 
   return (
     <motion.div
@@ -82,27 +82,27 @@ function AppointmentCard({ appt, onCancelled, onRescheduled }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className={`glass depth-shadow rounded-2xl p-4 ${isCancelled ? "opacity-60" : ""}`}
+      className={`glass depth-shadow rounded-2xl p-4 ${isCancelled || isPast ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="font-semibold text-blue-900">{appt.doctorName}</div>
           <div className="text-sm text-blue-600/80">
-            {appt.date} at {formatSlot(appt.time)}
+            {formatDay(appt.date)} at {formatSlot(appt.time)}
           </div>
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-            isCancelled ? "bg-slate-100 text-slate-500" : "bg-green-50 text-green-700"
+            status === "Booked" ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500"
           }`}
         >
-          {isCancelled ? "Cancelled" : "Booked"}
+          {status}
         </span>
       </div>
 
       {error && <p className="mt-2 text-sm text-crisis-dark">{error}</p>}
 
-      {!isCancelled && !rescheduling && (
+      {status === "Booked" && !rescheduling && (
         <div className="mt-3 flex gap-2">
           <button
             type="button"
@@ -131,28 +131,34 @@ function AppointmentCard({ appt, onCancelled, onRescheduled }) {
             exit={{ opacity: 0, height: 0 }}
             className="mt-3 space-y-2 overflow-hidden border-t border-slate-100 pt-3"
           >
+            <label htmlFor={`reschedule-date-${appt._id}`} className="block text-sm font-medium text-slate-700">
+              New date
+            </label>
             <input
+              id={`reschedule-date-${appt._id}`}
               type="date"
               value={date}
-              min={todayIso()}
+              min={today}
+              max={addDaysIso(today, BOOKING_WINDOW_DAYS)}
               onChange={(e) => loadSlots(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
             {slots === null && (
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5" aria-label="Loading available times">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="h-8 animate-pulse rounded-lg bg-slate-200" />
                 ))}
               </div>
             )}
-            {slots?.length === 0 && <p className="text-sm text-slate-500">No open slots that day.</p>}
+            {slots?.length === 0 && !error && <p className="text-sm text-slate-500">No open slots that day — try another date.</p>}
             {slots?.length > 0 && (
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4" role="group" aria-label="Available times">
                 {slots.map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setTime(t)}
+                    aria-pressed={time === t}
                     className={`rounded-lg border px-1.5 py-1.5 text-xs font-semibold ${
                       time === t ? "border-blue-700 bg-blue-700 text-white" : "border-slate-200 bg-white text-slate-700"
                     }`}
@@ -176,7 +182,7 @@ function AppointmentCard({ appt, onCancelled, onRescheduled }) {
                 onClick={() => setRescheduling(false)}
                 className="rounded-full border border-slate-200 px-3.5 py-1.5 text-sm font-semibold text-slate-600"
               >
-                Cancel
+                Keep current time
               </button>
             </div>
           </motion.div>
@@ -194,11 +200,12 @@ export default function MyAppointments() {
 
   const handleLookup = async (e) => {
     e.preventDefault();
-    if (!/^\d{10}$/.test(phone)) return;
+    const mobile = tenDigitPhone(phone);
+    if (!mobile) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchMyAppointments(phone);
+      const data = await fetchMyAppointments(mobile);
       setAppointments(data.appointments);
     } catch (err) {
       setError(err.message || "Could not load your appointments.");
@@ -206,6 +213,29 @@ export default function MyAppointments() {
       setLoading(false);
     }
   };
+
+  const today = localIsoDate();
+  const upcoming = (appointments || []).filter((a) => a.date >= today);
+  // Most recent first for the past ones.
+  const past = (appointments || []).filter((a) => a.date < today).reverse();
+
+  const update = (id, changes) => setAppointments((prev) => prev.map((x) => (x._id === id ? { ...x, ...changes } : x)));
+
+  const renderList = (list, isPast) => (
+    <div className="space-y-3">
+      <AnimatePresence>
+        {list.map((a) => (
+          <AppointmentCard
+            key={a._id}
+            appt={a}
+            isPast={isPast}
+            onCancelled={(id) => update(id, { status: "cancelled" })}
+            onRescheduled={(id, { date, time }) => update(id, { date, time })}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col px-2 py-2 sm:px-6 sm:py-6">
@@ -218,16 +248,23 @@ export default function MyAppointments() {
         <div className="shrink-0 border-b border-slate-100 px-4 py-4 sm:px-6">
           <h1 className="text-lg font-bold text-blue-900">My Appointments</h1>
           <form onSubmit={handleLookup} className="mt-3 flex gap-2">
+            <label htmlFor="lookup-phone" className="sr-only">
+              Mobile number you booked with
+            </label>
             <input
+              id="lookup-phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-              placeholder="Enter your 10-digit phone number"
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
+              placeholder="Enter your 10-digit mobile number"
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
             <button
               type="submit"
-              disabled={loading || !/^\d{10}$/.test(phone)}
-              className="rounded-full bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+              disabled={loading || !tenDigitPhone(phone)}
+              className="shrink-0 rounded-full bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
               {loading ? "Looking…" : "Find"}
             </button>
@@ -235,29 +272,29 @@ export default function MyAppointments() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-          {error && <p className="text-sm text-crisis-dark">{error}</p>}
+          {error && (
+            <p className="text-sm text-crisis-dark" role="alert">
+              {error}
+            </p>
+          )}
           {!error && appointments === null && (
-            <p className="py-10 text-center text-sm text-slate-500">Enter your phone number to see your appointments.</p>
+            <p className="py-10 text-center text-sm text-slate-500">Enter your mobile number to see your appointments.</p>
           )}
           {!error && appointments?.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-500">No appointments found for that number.</p>
           )}
           {!error && appointments?.length > 0 && (
-            <div className="space-y-3">
-              <AnimatePresence>
-                {appointments.map((a) => (
-                  <AppointmentCard
-                    key={a._id}
-                    appt={a}
-                    onCancelled={(id) =>
-                      setAppointments((prev) => prev.map((x) => (x._id === id ? { ...x, status: "cancelled" } : x)))
-                    }
-                    onRescheduled={(id, { date, time }) =>
-                      setAppointments((prev) => prev.map((x) => (x._id === id ? { ...x, date, time } : x)))
-                    }
-                  />
-                ))}
-              </AnimatePresence>
+            <div className="space-y-6">
+              <section>
+                <h2 className="mb-2 text-sm font-semibold text-slate-600">Upcoming</h2>
+                {upcoming.length ? renderList(upcoming, false) : <p className="text-sm text-slate-500">Nothing coming up.</p>}
+              </section>
+              {past.length > 0 && (
+                <section>
+                  <h2 className="mb-2 text-sm font-semibold text-slate-600">Past</h2>
+                  {renderList(past, true)}
+                </section>
+              )}
             </div>
           )}
         </div>

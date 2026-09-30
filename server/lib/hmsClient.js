@@ -4,7 +4,10 @@
 // endpoints; HMS_AUTH_HEADER/HMS_AUTH_VALUE are here so real auth can be
 // dropped in via env vars once confirmed with the HMS/IT team, without a
 // code change. Until then, requests go out with no extra auth header.
-const HMS_BASE = process.env.HMS_API_BASE || "https://tulasihms.in/hms/api";
+// Read per request, not at import, so tests and the sandbox can point this at
+// a stub no matter when the module was first loaded — the real patientdata
+// API creates a patient record on every lookup that doesn't match.
+const hmsBase = () => process.env.HMS_API_BASE || "https://tulasihms.in/hms/api";
 const HMS_AUTH_HEADER = process.env.HMS_AUTH_HEADER;
 const HMS_AUTH_VALUE = process.env.HMS_AUTH_VALUE;
 const HMS_TIMEOUT_MS = 10_000;
@@ -16,7 +19,7 @@ function buildHeaders() {
 }
 
 async function hmsPost(path, body) {
-  const res = await fetch(`${HMS_BASE}/${path}`, {
+  const res = await fetch(`${hmsBase()}/${path}`, {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify(body),

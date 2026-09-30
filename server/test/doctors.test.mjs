@@ -5,8 +5,10 @@ import {
   wantsDoctorHelp,
   getDoctorsForSpecialties,
   getGeneralistDoctor,
+  SPECIALTY_LABELS,
   DOCTORS,
 } from "../lib/doctors.js";
+import { detectHmsIntent } from "../lib/hmsIntent.js";
 
 test("wantsDoctorHelp — explicit asks and real distress trigger it", () => {
   assert.equal(wantsDoctorHelp("best doctor for anxiety"), true);
@@ -50,4 +52,20 @@ test("getDoctorsForSpecialties — every doctor referenced has non-empty special
     const matches = getDoctorsForSpecialties([tag], 50);
     assert.ok(matches.length > 0, `no doctor found for tag "${tag}" even though it's used in DOCTORS`);
   }
+});
+
+test("every specialty tag has a human-readable label", () => {
+  const tags = new Set(DOCTORS.flatMap((d) => d.specialties));
+  for (const tag of ["sleep_disorder", "phobia", "trauma"]) tags.add(tag); // matchable, even if no one is tagged yet
+  for (const tag of tags) assert.ok(SPECIALTY_LABELS[tag], `no label for "${tag}"`);
+});
+
+test("HMS intents — a bare 'my appointments' is no longer claimed as visit history", () => {
+  assert.equal(detectHmsIntent("show my appointments"), null);
+  assert.equal(detectHmsIntent("my last 5 visits"), "visits");
+  assert.equal(detectHmsIntent("Show my visit history"), "visits");
+  assert.equal(detectHmsIntent("cancel my appointment"), null);
+  // "new patient" alone shows up in ordinary booking requests.
+  assert.equal(detectHmsIntent("I'm a new patient, can I book with dr anu"), null);
+  assert.equal(detectHmsIntent("register me as a patient"), "register");
 });
