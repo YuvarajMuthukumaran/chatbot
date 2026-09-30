@@ -9,7 +9,7 @@ import { MongoClient } from "mongodb";
 // DNS lookup mongodb+srv:// needs. tls=true must be explicit in that form,
 // since only mongodb+srv:// implies it, and Atlas refuses unencrypted
 // connections.
-const TEST_MONGODB_URI = "";
+const TEST_MONGODB_URI = "mongodb://yuvarajmuthukumaran:Hxa7a47Q8HWs7Z2k@ac-l94jddb-shard-00-00.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-01.dptw3ke.mongodb.net:27017,ac-l94jddb-shard-00-02.dptw3ke.mongodb.net:27017/?replicaSet=atlas-p5qr7i-shard-0&authSource=admin&retryWrites=true&w=majority&tls=true&appName=Cluster0";
 const MONGODB_URI = process.env.MONGODB_URI ?? TEST_MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || "tulasi_test";
 
