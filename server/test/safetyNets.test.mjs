@@ -8,6 +8,28 @@ import { createSession, getSession, appendTurn, sanitizeHistory } from "../lib/s
 import { normalizePhone, cleanPersonName } from "../lib/patientDetails.js";
 import { escapeRegex, nameSearchPattern } from "../lib/bookingData.js";
 import { toChatMessages } from "../lib/llmClient.js";
+import { greetingFollowUpNote } from "../lib/conversationCues.js";
+
+test("a greeting mid-conversation gets a note pointing back at the thread", () => {
+  const history = [
+    { role: "user", text: "i feel bad" },
+    { role: "model", text: "I'm sorry you're feeling down." },
+  ];
+  for (const greeting of ["sup", "Sup?", "hey there", "hiii", "what's up", "namaste"]) {
+    assert.match(greetingFollowUpNote(history, greeting) || "", /i feel bad/, greeting);
+  }
+  assert.equal(greetingFollowUpNote([], "sup"), null, "a first message is a real greeting");
+  assert.equal(greetingFollowUpNote(history, "sup, my exam went badly"), null, "more than a greeting");
+  assert.equal(greetingFollowUpNote([{ role: "user", text: "book with dr pooja", private: true }], "hi"), null);
+});
+
+test("a turn note sits right before the message it's about", () => {
+  const messages = toChatMessages([{ role: "user", text: "i feel bad" }], "sup", undefined, "NOTE");
+  assert.deepEqual(messages.slice(-2), [
+    { role: "system", content: "NOTE" },
+    { role: "user", content: "sup" },
+  ]);
+});
 
 test("classifyEscape — emotional messages always win", () => {
   assert.equal(classifyEscape("I can't stop crying", { flow: "book" }), "emotional");

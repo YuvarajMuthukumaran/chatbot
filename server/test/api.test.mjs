@@ -1,7 +1,6 @@
 // End-to-end over HTTP: the real Express app on a throwaway port, backed by
-// the in-memory fake database. The LLM key is explicitly empty (overriding any
-// built-in test key), so nothing here calls Groq — which doubles as a check
-// that a missing key degrades gracefully.
+// the in-memory fake database. The Groq key is built into the code, so no
+// test here sends a message that would reach the LLM (it'd call Groq for real).
 import { test, before, after } from "node:test";
 import assert from "node:assert";
 import { createFakeDb } from "../scripts/fakeDb.js";
@@ -9,7 +8,6 @@ import { setDb } from "../lib/db.js";
 import { app } from "../app.js";
 import { clinicToday, addDays } from "../lib/clinicTime.js";
 
-process.env.GROQ_API_KEY = "";
 delete process.env.ADMIN_TOKEN;
 // Never the hospital's real HMS from tests (it creates a patient record on
 // every unmatched lookup) — a dead local address makes sure of it.
@@ -106,16 +104,6 @@ test("chat — booking replies carry quick replies", async () => {
   const { events } = await chat(sessionId, "book an appointment");
   assert.equal(events[0].functional, true);
   assert.ok(events[0].quickReplies.includes("Anxiety"));
-});
-
-test("chat — a missing LLM key is a friendly error, not a crash", async () => {
-  const sessionId = await newSession();
-  const { events } = await chat(sessionId, "hi there");
-  assert.equal(events[0].error, true);
-  assert.match(events[0].text, /trouble connecting/);
-  const status = await (await fetch(`${base}/llm-status`)).json();
-  assert.equal(status.apiKeyConfigured, false);
-  assert.match(status.lastError.message, /GROQ_API_KEY is not set/);
 });
 
 test("chat — oversized messages and unknown sessions are rejected cleanly", async () => {

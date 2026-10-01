@@ -70,7 +70,10 @@ const PRIVATE_BLOCK_NOTE =
 // consecutive private turns is replaced by one system note, plus any PII-free
 // summary the flow attached (e.g. which doctor and date were booked), so the
 // model keeps enough context to follow the conversation.
-export function toChatMessages(history, message, extraContext) {
+// `turnNote` (optional) is a system note about this message specifically. It
+// goes right before it, where the model weighs it most — `extraContext`
+// (background like matching specialists) goes up top with the instructions.
+export function toChatMessages(history, message, extraContext, turnNote) {
   const messages = [{ role: "system", content: SYSTEM_INSTRUCTION }];
   if (extraContext) messages.push({ role: "system", content: extraContext });
 
@@ -92,6 +95,7 @@ export function toChatMessages(history, message, extraContext) {
   }
   flushPrivate();
 
+  if (turnNote) messages.push({ role: "system", content: turnNote });
   messages.push({ role: "user", content: message });
   return messages;
 }
@@ -112,7 +116,7 @@ function getErrorStatus(err) {
  * the full turn history every call, trimmed to the most recent turns to
  * bound latency/cost as a conversation grows. `history` is
  * [{ role: 'user' | 'model', text }]. */
-export async function streamReply({ history, message, onChunk, abortSignal, extraContext }) {
+export async function streamReply({ history, message, onChunk, abortSignal, extraContext, turnNote }) {
   let ai;
   try {
     ai = getClient();
@@ -124,7 +128,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
     console.error(err.message);
     return { ok: false, rateLimited: false, text: CONNECTION_TROUBLE };
   }
-  const messages = toChatMessages(history, message, extraContext);
+  const messages = toChatMessages(history, message, extraContext, turnNote);
 
   let lastErr = null;
 

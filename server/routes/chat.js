@@ -9,6 +9,7 @@ import {
   wantsDoctorHelp,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
+import { greetingFollowUpNote } from "../lib/conversationCues.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
@@ -137,6 +138,8 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       onChunk: (text) => send({ text }),
       abortSignal: controller.signal,
       extraContext,
+      // "sup" mid-conversation: keep the thread instead of starting over.
+      turnNote: greetingFollowUpNote(session.history, message),
     });
 
     if (result.aborted) {
