@@ -29,7 +29,7 @@ function recordError(err, status, model) {
 const TEST_GROQ_API_KEY = "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";
 
 export function getApiKey() {
-  return "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";
+  return "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";
 }
 
 function getClient() {
