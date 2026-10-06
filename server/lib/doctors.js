@@ -2,6 +2,9 @@
 // tagged manually against each doctor's own bio page). Specialties are
 // inferred from what each bio actually says it treats, not guessed —
 // re-fetch and re-tag if the team page changes meaningfully.
+// `generalist: true` marks doctors whose own bio describes broad general practice
+// rather than named conditions; guided matching (routes/match.js) uses them to
+// fill gaps instead of leaving them invisible.
 export const DOCTORS = [
   { name: "Dr. Gorav Gupta", role: "CEO, Senior Consultant Psychiatrist", specialties: ["addiction", "rehabilitation"], focus: "Senior Consultant Psychiatrist of the Indian Continent; pioneering work in psycho-social rehabilitation and de-addiction.", photo: "/doctors/gorav-gupta.webp" },
   { name: "Dr. Ichpreet Singh", role: "Consultant Psychiatrist", specialties: ["ocd", "depression", "anxiety", "bipolar", "schizophrenia", "ptsd", "addiction", "sexual_disorder"], focus: "10+ years treating PTSD, depression, anxiety, OCD, schizophrenia, bipolar disorder, and addiction, with a specialisation in sexual disorders.", photo: "/doctors/ichpreet-singh.webp" },
@@ -15,8 +18,8 @@ export const DOCTORS = [
   { name: "Dr. Rini Maurya", role: "Consultant Psychiatrist", specialties: ["depression", "child_adolescent", "geriatric_dementia", "rehabilitation"], focus: "Clinical experience across AIIMS and NIMHANS.", photo: "/doctors/rini-maurya.webp" },
   { name: "Dr. Ratnarakshit Ingole", role: "Senior Consultant Psychiatrist", specialties: ["depression", "bipolar", "addiction", "schizophrenia", "anxiety", "ocd", "relationship"], focus: "20 years treating mood disorders, addiction, schizophrenia, and anxiety, with a focus on de-addiction, relapse prevention, and relationship counseling." },
   { name: "Dr. Anil Kumar", role: "Consultant Psychiatrist", specialties: ["child_adolescent"], focus: "18+ years diagnosing a broad range of psychiatric disorders, including developmental challenges in children." },
-  { name: "Dr. Anu Yadav", role: "Consultant Psychiatrist", specialties: [], focus: "Holistic treatment approach.", photo: "/doctors/anu-yadav.jpg" },
-  { name: "Dr. Naseem Akhtar Qureshi", role: "Senior Consultant Psychiatrist", specialties: [], focus: "45+ years of clinical, academic, and administrative experience across India, Saudi Arabia, and the UAE." },
+  { name: "Dr. Anu Yadav", role: "Consultant Psychiatrist", specialties: [], generalist: true, focus: "Holistic treatment approach.", photo: "/doctors/anu-yadav.jpg" },
+  { name: "Dr. Naseem Akhtar Qureshi", role: "Senior Consultant Psychiatrist", specialties: [], generalist: true, focus: "45+ years of clinical, academic, and administrative experience across India, Saudi Arabia, and the UAE." },
   { name: "Dr. Kritika Soni", role: "Consultant Psychiatrist", specialties: ["addiction", "geriatric_dementia", "child_adolescent"], focus: "De-addiction, neuropsychiatry, geriatric psychiatry, and adolescent mental health, with training in crisis intervention and suicide risk assessment." },
   { name: "Dr. Samridhi Sandooja", role: "Consultant Psychiatrist", specialties: ["child_adolescent"], focus: "AIIMS-trained; broad psychiatric, behavioural, and emotional care across all ages, with a certificate in child and adolescent psychiatry." },
   { name: "Ms. Kiran Singh", role: "Rehabilitation Psychologist", specialties: ["ocd", "depression", "anxiety", "bipolar", "schizophrenia", "addiction", "personality_disorder", "rehabilitation"], focus: "RCI-licensed, 8 years supporting a wide range of mental health and personal goals.", photo: "/doctors/kiran-singh.webp" },
@@ -33,11 +36,11 @@ export const DOCTORS = [
   { name: "Mr. Suparas Jain", role: "Consultant Clinical Psychologist", specialties: ["anxiety", "depression", "bipolar", "schizophrenia"], focus: "RCI-licensed; anxiety, depression, bipolar disorder, schizophrenia, and psychosis, with CBT, DBT, and psychodynamic therapy." },
   { name: "Ms. Chaya Chaudhary", role: "Rehabilitation Psychologist", specialties: ["rehabilitation"], focus: "", photo: "/doctors/chaya-chaudhary.webp" },
   { name: "Ms. Surabhi Sengar", role: "Rehabilitation Psychologist", specialties: ["rehabilitation"], focus: "RCI-registered.", photo: "/doctors/surabhi-sengar.webp" },
-  { name: "Mr. Inderjeet Singh", role: "Senior Consultant Psychologist", specialties: [], focus: "Psychotherapist since 2007; existential psychology and psychotherapy across a variety of psychiatric conditions." },
+  { name: "Mr. Inderjeet Singh", role: "Senior Consultant Psychologist", specialties: [], generalist: true, focus: "Psychotherapist since 2007; existential psychology and psychotherapy across a variety of psychiatric conditions." },
   { name: "Dr. Pranita Gaur", role: "Senior Consultant Psychologist", specialties: ["stress", "child_adolescent", "relationship"], focus: "40+ years; student mental health, academic stress, child and family counseling, and relationship/interpersonal issues." },
   { name: "Ms. Ankita Bhatnagar", role: "Rehabilitation Psychologist", specialties: ["rehabilitation"], focus: "", photo: "/doctors/ankita-bhatnagar.jpg" },
   { name: "Ms. Jyoti", role: "Clinical Psychologist", specialties: ["anxiety", "depression", "ocd", "bipolar", "personality_disorder", "stress", "schizophrenia"], focus: "Anxiety, depression, OCD, psychosis, bipolar disorder, personality disorders, and stress-related concerns." },
-  { name: "Ms. Titiksha Agnihotri", role: "Clinical Psychologist", specialties: [], focus: "RCI-licensed; emotional distress, behavioral challenges, and life transitions for children and adults." },
+  { name: "Ms. Titiksha Agnihotri", role: "Clinical Psychologist", specialties: ["child_adolescent"], generalist: true, focus: "RCI-licensed; emotional distress, behavioral challenges, and life transitions for children and adults." },
 ];
 
 // Best-effort, deliberately conservative — only fires on fairly explicit

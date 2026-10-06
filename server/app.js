@@ -6,6 +6,7 @@ import sessionRoutes from "./routes/session.js";
 import chatRoutes from "./routes/chat.js";
 import doctorsRoutes from "./routes/doctors.js";
 import appointmentsRoutes from "./routes/appointments.js";
+import matchRoutes from "./routes/match.js";
 import { getDb, getLastDbError } from "./lib/db.js";
 import { getApiKey, getLastLlmError } from "./lib/llmClient.js";
 
@@ -49,6 +50,7 @@ app.use("/api", sessionRoutes);
 app.use("/api", chatRoutes);
 app.use("/api", doctorsRoutes);
 app.use("/api", appointmentsRoutes);
+app.use("/api", matchRoutes);
 
 app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {
