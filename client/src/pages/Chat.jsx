@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
 import TulasiMascot from "../components/TulasiMascot.jsx";
@@ -24,19 +23,6 @@ export default function Chat() {
   const { messages, sessionId, streaming, connectionError, lastFailedText, mood, send, retry, newChat } = useChat();
   const [input, setInput] = useState("");
   const [announcement, setAnnouncement] = useState("");
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // "Talk it through with Tulasi" from a check-in result arrives with a
-  // suggested opening line. It's put in the box, not sent: the person
-  // decides whether to share their result.
-  useEffect(() => {
-    const prefill = location.state?.prefill;
-    if (!prefill) return;
-    setInput(prefill);
-    navigate(location.pathname, { replace: true, state: null });
-    inputRef.current?.focus();
-  }, [location.state, location.pathname, navigate]);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const seenCountRef = useRef(messages.length);
@@ -169,7 +155,9 @@ export default function Chat() {
               crisis={m.crisis}
               failed={m.failed}
               doctors={m.doctors}
-              links={m.links}
+              progress={m.progress}
+              assessment={m.assessment}
+              medicines={m.medicines}
               onBookDoctor={streaming ? undefined : (name) => submit(`Book an appointment with ${name}`)}
             />
           ))}

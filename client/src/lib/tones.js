@@ -1,4 +1,4 @@
-// Colours for a check-in result level. Full class names (not built with
+// Colours for a screening result level. Full class names (not built with
 // string templates) so Tailwind can see them.
 export const TONES = {
   calm: {

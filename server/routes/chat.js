@@ -11,7 +11,7 @@ import {
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
 import { greetingFollowUpNote, romanScriptNote, offScopeNote } from "../lib/conversationCues.js";
 import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
-import { findToolLinks } from "../lib/toolLinks.js";
+import { findMedicineCards } from "../lib/toolLinks.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
@@ -112,7 +112,11 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
         ...(det.quickReplies?.length && { quickReplies: det.quickReplies }),
         // Website widget: which secure page to offer ("book" | "portal").
         ...(det.action && { action: det.action }),
+        // In-chat screening: question progress, and the result card.
+        ...(det.progress && { progress: det.progress }),
+        ...(det.assessment && { assessment: det.assessment }),
       });
+      if (det.doctors?.length) send({ doctors: det.doctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
       return finish();
     }
 
@@ -160,9 +164,8 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     // refuse or guess a price.
     const previousUserText = [...session.history].reverse().find((turn) => turn.role === "user" && !turn.private)?.text;
     const clinicNote = buildClinicFactsNote(findClinicTopics(message, previousUserText));
-    // Medicine guide / self check-in links. Not on the website widget, which
-    // has no such pages.
-    const tools = session.channel === "website" ? { links: [] } : findToolLinks(message);
+    // Medicine cards. Not on the website widget, which has no guide pages.
+    const tools = session.channel === "website" ? { medicines: [] } : findMedicineCards(message);
     const extraContext =
       [session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note].filter(Boolean).join("\n\n") || undefined;
 
@@ -204,7 +207,7 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       if (helpReason === "concern") session.lastConcernCardsAt = session.conversationTurns;
       send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
     }
-    if (tools.links.length) send({ links: tools.links });
+    if (tools.medicines.length) send({ medicines: tools.medicines });
     finish();
   } catch (err) {
     // Headers are already sent, so the error middleware can't answer this

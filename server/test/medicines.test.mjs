@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert";
 import { MEDICINES, MEDICINE_CATEGORIES, getMedicine, findMedicinesIn } from "../lib/medicines.js";
-import { findToolLinks } from "../lib/toolLinks.js";
+import { findMedicineCards } from "../lib/toolLinks.js";
 import { app } from "../app.js";
 
 let server;
@@ -43,17 +43,14 @@ test("medicine names in a message are found, including alternative names", () =>
   assert.strictEqual(getMedicine("nope"), null);
 });
 
-test("the chat links medicine questions to the guide and 'do I have…' questions to a check-in", () => {
-  const med = findToolLinks("can sertraline make me sleepy?");
-  assert.deepStrictEqual(med.links, [{ label: "About Sertraline", to: "/medicines/sertraline", kind: "medicine" }]);
-  assert.match(med.note, /no doses/);
-
-  assert.strictEqual(findToolLinks("do I have depression?").links[0].to, "/check-in/depression");
-  assert.strictEqual(findToolLinks("is this anxiety or am I overthinking").links[0].to, "/check-in/anxiety");
-  assert.strictEqual(findToolLinks("is my drinking a problem").links[0].to, "/check-in/alcohol");
-  assert.match(findToolLinks("do I have depression?").note, /isn't a diagnosis/);
-
-  assert.deepStrictEqual(findToolLinks("I feel so low today").links, []);
+test("naming a medicine in chat brings up a compact card, and tells the model to stay brief", () => {
+  const { medicines, note } = findMedicineCards("can sertraline make me sleepy?");
+  assert.strictEqual(medicines.length, 1);
+  assert.strictEqual(medicines[0].slug, "sertraline");
+  assert.ok(medicines[0].common.includes("Sexual side effects"), "chips drop the bracketed detail");
+  assert.match(note, /one or two short sentences/);
+  assert.match(note, /no doses/);
+  assert.deepStrictEqual(findMedicineCards("I feel so low today").medicines, []);
 });
 
 test("GET /api/medicines lists summaries; GET /api/medicines/:slug returns the full entry", async () => {

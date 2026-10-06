@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
 import { normalizeMarkdown } from "../lib/markdown.js";
+import { ScreeningProgress, AssessmentCard, MedicineCard } from "./ChatCards.jsx";
 
 const markdownComponents = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -28,35 +29,7 @@ const markdownComponents = {
   code: ({ children }) => <code className="rounded bg-black/5 px-1 py-0.5 text-[0.9em]">{children}</code>,
 };
 
-// Cards under a reply that open the medicine guide or a self check-in.
-function ToolLinks({ links }) {
-  return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-blue-100 pt-2">
-      {links.map((link) => (
-        <Link
-          key={link.to}
-          to={link.to}
-          className="group flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-blue-100 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-        >
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-lavender-100 text-lg">
-            {link.kind === "medicine" ? "💊" : "📋"}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-blue-900">{link.label}</span>
-            <span className="block text-xs text-slate-500">
-              {link.kind === "medicine" ? "Uses, side effects & what to watch for" : "A short private questionnaire, not a diagnosis"}
-            </span>
-          </span>
-          <span aria-hidden="true" className="text-blue-600 transition-transform group-hover:translate-x-0.5">
-            →
-          </span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-export default function ChatBubble({ role, text, crisis, failed, doctors, links, onBookDoctor }) {
+export default function ChatBubble({ role, text, crisis, failed, doctors, progress, assessment, medicines, onBookDoctor }) {
   const isUser = role === "user";
   return (
     <motion.div
@@ -81,7 +54,12 @@ export default function ChatBubble({ role, text, crisis, failed, doctors, links,
           text
         ) : (
           <>
+            {progress && <ScreeningProgress progress={progress} />}
             <ReactMarkdown components={markdownComponents}>{normalizeMarkdown(text)}</ReactMarkdown>
+            {assessment && <AssessmentCard card={assessment} />}
+            {medicines?.map((m) => (
+              <MedicineCard key={m.slug} medicine={m} />
+            ))}
             {doctors?.length > 0 && (
               <div className="mt-2 flex flex-col gap-2 border-t border-blue-100 pt-2">
                 {doctors.map((d) => (
@@ -118,7 +96,6 @@ export default function ChatBubble({ role, text, crisis, failed, doctors, links,
                 ))}
               </div>
             )}
-            {links?.length > 0 && <ToolLinks links={links} />}
           </>
         )}
       </div>

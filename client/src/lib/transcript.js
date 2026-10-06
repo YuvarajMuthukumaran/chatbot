@@ -4,7 +4,7 @@
 
 export const TRANSCRIPT_KEY = "tulasi.transcript";
 
-// Plenty for months of check-ins, well within browser storage limits.
+// Plenty for months of conversations, well within browser storage limits.
 export const MAX_SAVED_MESSAGES = 500;
 
 // Hospital records (diagnoses, prescriptions) sit behind an identity check.

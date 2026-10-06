@@ -7,7 +7,6 @@ import logo from "../assets/tulasi-logo.webp";
 // and tooltips get.
 const NAV_LINKS = [
   { to: "/", label: "Chat", short: "Chat", icon: "💬", end: true },
-  { to: "/check-in", label: "Self check-ins", short: "Check-in", icon: "📋" },
   { to: "/medicines", label: "Medicine guide", short: "Medicines", icon: "💊" },
   { to: "/doctors", label: "Find a Doctor", short: "Doctors", icon: "🩺" },
   { to: "/appointments", label: "My Appointments", short: "Appointments", icon: "📅" },

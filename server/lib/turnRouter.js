@@ -12,6 +12,7 @@ import { detectHmsIntent } from "./hmsIntent.js";
 import { detectBookingIntent } from "./bookingIntent.js";
 import { handleHmsTurn, abandonHmsCollection } from "./hmsFlow.js";
 import { handleBookingTurn, abandonBookingFlow } from "./bookingFlow.js";
+import { handleAssessmentTurn, abandonAssessment, assessmentActive, answersCurrentQuestion } from "./assessmentFlow.js";
 
 const region = process.env.CRISIS_REGION || "IN";
 
@@ -21,6 +22,7 @@ const STOPPED = {
   reschedule: "No problem — I've stopped there, and your appointment is unchanged.",
   view: "No problem, I've stopped there.",
   hms: "No problem, I've stopped there.",
+  assessment: "No problem, I've stopped the questions.",
 };
 
 const WEBSITE_REPLIES = {
@@ -29,6 +31,7 @@ const WEBSITE_REPLIES = {
 };
 
 function activeFlow(session) {
+  if (assessmentActive(session)) return "assessment";
   if (session.booking?.flow) return session.booking.flow;
   if (session.hms?.collecting) return "hms";
   return null;
@@ -37,6 +40,7 @@ function activeFlow(session) {
 function abandonFlows(session) {
   abandonBookingFlow(session);
   abandonHmsCollection(session);
+  abandonAssessment(session);
   session.lastFlowPrompt = null;
 }
 
@@ -66,7 +70,9 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
   // acknowledgement — a stuck form-fill state must never swallow an
   // emotional disclosure in a mental-health companion.
   const flow = activeFlow(session);
-  if (flow) {
+  // A screening answer is an answer even when it reads like a feeling
+  // ("When I'm stressed or anxious").
+  if (flow && !(flow === "assessment" && answersCurrentQuestion(session, message))) {
     const escape = classifyEscape(message, { flow });
     if (escape === "emotional") {
       abandonFlows(session);
@@ -83,7 +89,9 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
     // Switching between the two systems mid-flow ("actually, book an
     // appointment" while verifying for records, or vice versa).
     if (flow === "hms" && detectBookingIntent(message)) abandonHmsCollection(session);
-    if (flow !== "hms" && detectHmsIntent(message)) abandonBookingFlow(session);
+    if (flow !== "hms" && flow !== "assessment" && detectHmsIntent(message)) abandonBookingFlow(session);
+    // Asking to book or for records partway through a screening ends it.
+    if (flow === "assessment" && (detectBookingIntent(message) || detectHmsIntent(message))) abandonAssessment(session);
   }
 
   // Website widget: no names, phone numbers or records are collected in chat.
@@ -100,6 +108,13 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
   // Patient self-service (admission/discharge status, prescriptions, patient
   // lookup): fully deterministic, like crisis detection above, so the model
   // never sees or rephrases real medical data.
+  // In-chat screenings ("I think I have OCD", "I feel dizzy"). Not on the
+  // website widget, which mustn't collect medical history in chat.
+  if (session.channel !== "website") {
+    const assessmentResult = await handleAssessmentTurn(session, message);
+    if (assessmentResult.handled) return guardAgainstLoops(session, { ...assessmentResult, functional: true });
+  }
+
   const hmsResult = await handleHmsTurn(session, message, ctx);
   if (hmsResult.handled) return guardAgainstLoops(session, { ...hmsResult, functional: true });
 
