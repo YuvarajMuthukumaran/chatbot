@@ -2,7 +2,7 @@
 // Same design as the booking flow: deterministic, tappable answers, and the
 // turns are kept private (never sent to the model): only a one-line summary
 // of the result goes to it, so it can follow up naturally.
-import { ASSESSMENTS, detectAssessmentIntent, parseAnswer } from "./assessments.js";
+import { ASSESSMENTS, detectAssessmentIntent, parseAnswer, ACCEPTS_OFFER, mentionsDizzinessDanger } from "./assessments.js";
 import { getDoctorsForSpecialties } from "./doctors.js";
 import { getCrisisResources } from "./crisisResources.js";
 
@@ -68,14 +68,22 @@ function finish(session, def, answers) {
 export async function handleAssessmentTurn(session, message) {
   const state = session.assessment;
   if (!state) {
-    const id = detectAssessmentIntent(message);
+    // An offer (a "Check for depression" button under the last reply) only
+    // lasts one turn: "ok let's do that" right after it accepts.
+    const offered = session.offeredAssessment;
+    session.offeredAssessment = null;
+    const id = detectAssessmentIntent(message) || (offered && ACCEPTS_OFFER.test(message) ? offered : null);
     if (!id) return { handled: false };
     const def = ASSESSMENTS[id];
+    // "dizzy, and my left arm is numb": straight to emergency advice.
+    if (id === "dizziness" && mentionsDizzinessDanger(message)) return finish(session, def, [1]);
     session.assessment = { id, index: 0, answers: [] };
     return questionReply(def, 0, `${def.intro}\n\n`);
   }
 
   const def = ASSESSMENTS[state.id];
+  // A danger sign mentioned in any answer counts, even alongside "no".
+  if (state.id === "dizziness" && mentionsDizzinessDanger(message)) return finish(session, def, [1]);
   const question = def.questions[state.index];
   const option = parseAnswer(question, message);
   if (!option) return questionReply(def, state.index, "Please pick one of the options below (or say **stop**).\n\n");

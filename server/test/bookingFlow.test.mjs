@@ -322,3 +322,18 @@ test("'morning' at the time step narrows the list to morning slots", async () =>
   assert.match(result.reply, /^Morning times/);
   assert.ok(result.quickReplies.every((q) => q === "Never mind" || /AM|12:\d\d PM/.test(q)), result.quickReplies.join());
 });
+
+test("a name and number given in the first message aren't asked for again, and 'yes' is never a name", async () => {
+  const session = {};
+  const result = await converse(session, [
+    "book an appointment with dr pooja sharma tomorrow at 10am for my mother her name is Sunita Devi and number is 9876501234",
+  ]);
+  assert.match(result.reply, /Please confirm/);
+  assert.match(result.reply, /Sunita Devi/);
+  assert.match(result.reply, /9876501234/);
+
+  const noName = {};
+  await converse(noName, ["book an appointment with dr pooja sharma", "tomorrow", "10:00 AM"]);
+  const yes = await converse(noName, ["yes"]);
+  assert.match(yes.reply, /full name/);
+});

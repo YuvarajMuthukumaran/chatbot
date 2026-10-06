@@ -73,7 +73,7 @@ const INTENT_PATTERNS = {
     /\balcoholism\b|\bde-?addiction\b|\baddicted\b|\baddiction\b|\bsubstance abuse\b/i,
     // How families actually describe it on the phone: "he drinks every day",
     // "daru ki aadat", "betting addiction".
-    /\balcohol(?:ic)?\b|\bdrinks? (?:a lot|too much|heavily|daily|every day)\b|\bdrinking (?:problem|habit|too much|heavily|every day)\b|\b(?:daru|sharab|smack|ganja)\b|\bdrugs\b|\b(?:gambling|betting)\b/i,
+    /\balcohol(?:ic)?\b|\bdrinks? (?:a lot|too much|heavily|daily|every day)\b|\bdrinking (?:problem|habit|too much|heavily|daily|every day)\b|\b(?:daru|sharab|smack|ganja)\b|\bdrugs\b|\b(?:gambling|betting)\b/i,
     /नशा|लत|शराब|दारू/, // Hindi
     /போதை|அடிமை/, // Tamil
     /మత్తు|వ్యసనం/, // Telugu

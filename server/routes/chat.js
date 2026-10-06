@@ -9,9 +9,10 @@ import {
   doctorHelpReason,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
-import { greetingFollowUpNote, romanScriptNote, offScopeNote } from "../lib/conversationCues.js";
+import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote } from "../lib/conversationCues.js";
 import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
 import { findMedicineCards } from "../lib/toolLinks.js";
+import { detectAssessmentOffer, OFFER_LABELS } from "../lib/assessments.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
@@ -166,8 +167,14 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     const clinicNote = buildClinicFactsNote(findClinicTopics(message, previousUserText));
     // Medicine cards. Not on the website widget, which has no guide pages.
     const tools = session.channel === "website" ? { medicines: [] } : findMedicineCards(message);
+    // Wondering about a condition ("I don't know if it's depression"): a
+    // button under the reply starts the screening.
+    const offer = session.channel === "website" ? null : detectAssessmentOffer(message);
+    const offerNote = offer
+      ? `A button labelled "${OFFER_LABELS[offer]}" is shown under your reply; tapping it starts a short screening in this chat. You can mention it in a few words. Never ask them to type a special phrase, and never say you can't run it.`
+      : null;
     const extraContext =
-      [session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note].filter(Boolean).join("\n\n") || undefined;
+      [session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note, offerNote].filter(Boolean).join("\n\n") || undefined;
 
     const result = await streamReply({
       history: session.history,
@@ -177,10 +184,12 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       extraContext,
       // "sup" mid-conversation: keep the thread instead of starting over.
       // Hinglish in, Hinglish (not Devanagari) out.
-      // Code/homework requests get a reminder to decline.
+      // Code/homework requests get a reminder to decline; "do I have
+      // bipolar?" a reminder not to invent a quiz.
       turnNote:
-        [greetingFollowUpNote(session.history, message), romanScriptNote(message), offScopeNote(message)].filter(Boolean).join("\n\n") ||
-        undefined,
+        [greetingFollowUpNote(session.history, message), romanScriptNote(message), offScopeNote(message), selfDiagnosisNote(message)]
+          .filter(Boolean)
+          .join("\n\n") || undefined,
     });
 
     if (result.aborted) {
@@ -208,6 +217,10 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
     }
     if (tools.medicines.length) send({ medicines: tools.medicines });
+    if (offer) {
+      session.offeredAssessment = offer;
+      send({ quickReplies: [OFFER_LABELS[offer]] });
+    }
     finish();
   } catch (err) {
     // Headers are already sent, so the error middleware can't answer this

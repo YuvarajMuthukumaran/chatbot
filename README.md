@@ -96,7 +96,7 @@ response shapes).
 - **In-chat screenings:** "I think I have OCD", "am I depressed", "I feel
   dizzy" and similar start a few tap-to-answer questions in the chat, then a
   result card. Questions and scoring are in `server/lib/assessments.js`
-  (OCI-4, PHQ-9, GAD-7, ASRS, AUDIT-C, and a dizziness triage that checks
+  (OCI-4, PHQ-9, GAD-7, ASRS, PC-PTSD-5, AUDIT-C, and a dizziness triage that checks
   danger signs first). The turns are private: the model only gets a one-line
   summary. A non-zero PHQ-9 self-harm answer always shows crisis support.
 - **Doctor directory:** `server/lib/doctors.js` is the source of truth. After

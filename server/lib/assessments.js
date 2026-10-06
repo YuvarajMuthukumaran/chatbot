@@ -9,6 +9,8 @@
 //   Depression: PHQ-9 (Kroenke, Spitzer & Williams), free to use
 //   Anxiety:    GAD-7 (Spitzer et al.), free to use
 //   ADHD:       ASRS v1.1 screener, Part A (WHO), free to use
+//   PTSD:       PC-PTSD-5 (US VA National Center for PTSD), public domain;
+//               3 = screen-positive cut-off ("Possible"), 4+ "Likely"
 //   Alcohol:    AUDIT-C (WHO AUDIT, first three questions)
 //   Dizziness:  a triage, not a validated scale: danger signs first, then
 //               common triggers. It points to likely causes and how urgently
@@ -182,6 +184,54 @@ export const ASSESSMENTS = {
     },
   },
 
+  ptsd: {
+    id: "ptsd",
+    title: "PTSD screening",
+    tool: "PC-PTSD-5",
+    specialty: "ptsd",
+    intro:
+      "Thank you for trusting me with that. I'll ask **a few short yes/no questions**. You don't need to describe what happened, and you can say **stop** at any time.",
+    questions: [
+      {
+        text: "Have you ever been through something especially frightening, horrible or traumatic?",
+        hint: "for example a serious accident, an assault, abuse, a disaster, war, or the sudden death of someone close",
+        options: YES_NO,
+        noPrompt: true,
+      },
+      { text: "Had nightmares about it, or thought about it when you didn't want to?", options: YES_NO },
+      { text: "Tried hard not to think about it, or gone out of your way to avoid situations that remind you of it?", options: YES_NO },
+      { text: "Been constantly on guard, watchful, or easily startled?", options: YES_NO },
+      { text: "Felt numb or detached from people, activities, or your surroundings?", options: YES_NO },
+      { text: "Felt guilty or unable to stop blaming yourself or others for it, or for problems it may have caused?", options: YES_NO },
+    ],
+    prompt: "In the past month, have you…",
+    // PTSD follows a traumatic event, so without one the rest doesn't apply.
+    stopAfter: (a, index) => index === 0 && a[0] === 0,
+    score(a) {
+      if (a[0] === 0)
+        return result({
+          likelihood: "low",
+          label: "Not applicable",
+          headline: "PTSD follows a traumatic event, so this screening doesn't apply to you.",
+          next: ["Stress, anxiety and low mood can still feel very heavy. I'm happy to talk about what's going on, or you can say \"do I have anxiety\" to check that."],
+        });
+      const yes = sum(a, 1, 6);
+      const points = [
+        a[1] && "Unwanted memories or nightmares",
+        a[2] && "Avoiding reminders",
+        a[3] && "Always on guard or easily startled",
+        a[4] && "Feeling numb or detached",
+        a[5] && "Guilt or blame",
+      ].filter(Boolean);
+      const base = { score: { value: yes, max: 5 }, points };
+      if (yes >= 4)
+        return result({ ...base, likelihood: "likely", label: "Likely", headline: "Your answers show several signs that are common in PTSD.", next: ["PTSD is very treatable. Trauma-focused therapies help most people a lot.", "A psychiatrist can confirm it and plan care with you, at your pace."], suggestDoctors: true });
+      if (yes === 3)
+        return result({ ...base, likelihood: "possible", label: "Possible", headline: "Your answers show some signs that can be part of PTSD.", next: ["It's worth talking to a specialist, especially if these feelings are affecting your daily life."], suggestDoctors: true });
+      return result({ ...base, likelihood: "low", label: "Unlikely", headline: "Your answers don't show the usual pattern of PTSD.", next: ["Going through something hard can still leave a mark. If you'd like to talk about it, I'm here."] });
+    },
+  },
+
   alcohol: {
     id: "alcohol",
     title: "Alcohol use check",
@@ -280,7 +330,7 @@ export const ASSESSMENTS = {
 
 // ---- recognising a request ---------------------------------------------------
 
-const ASKING = String.raw`(?:i think i (?:have|might have|may have|got)|i (?:might|may) have|do i have|could i have|have i got|am i|is (?:this|it)|test me for|check (?:me |if i have )?(?:for )?)`;
+const ASKING = String.raw`(?:i think i (?:have|might have|may have|got)|i (?:might|may) have|do i have|could i have|have i got|am i|is (?:this|it)|could (?:this|it) be|test me for|check (?:me |if i have )?(?:for )?)`;
 const about = (condition) => new RegExp(String.raw`\b${ASKING}\b[^.?!]{0,30}\b(?:${condition})\b`, "i");
 
 const INTENTS = [
@@ -288,12 +338,25 @@ const INTENTS = [
   ["depression", [about("depress(?:ed|ion)|clinically depressed"), /\bdepression (?:test|check|quiz|screening)\b/i, /\bkya mujhe depression\b|\bdepression hai kya\b/i]],
   ["anxiety", [about("anxiety(?: disorder)?|an anxiety disorder|gad"), /\banxiety (?:test|check|quiz|screening)\b/i, /\banxiety hai kya\b/i]],
   ["adhd", [about("adhd"), /\badhd (?:test|check|quiz|screening)\b/i]],
-  ["alcohol", [/\b(?:am i (?:an )?alcoholic|is my drinking (?:a problem|too much|normal|ok(?:ay)?)|do i drink too much|am i drinking too much|alcohol (?:test|check|quiz|screening))\b/i]],
+  ["ptsd", [about("ptsd|post[- ]?traumatic stress(?: disorder)?|trauma"), /\bptsd (?:test|check|quiz|screening)\b/i, /\bptsd hai kya\b/i]],
+  ["alcohol", [/\bcheck my drinking\b|\b(?:am i (?:an )?alcoholic|is my drinking (?:a problem|too much|normal|ok(?:ay)?)|do i drink too much|am i drinking too much|alcohol (?:test|check|quiz|screening))\b/i]],
   [
     "dizziness",
     [/\b(?:dizzy|dizziness|light[- ]?headed(?:ness)?|vertigo|head (?:is )?spinning|room (?:is )?spinning|chakk?ar (?:aa|aata|aate|aa raha|aa rahe))\b|चक्कर|தலைசுற்ற|తల తిరుగ/i],
   ],
 ];
+
+// Emergency signs named in the person's own words, at any point in the
+// dizziness check: "my left arm feels numb", "chest pain", "I fainted".
+// People in an emergency often play symptoms down when asked directly, so
+// what they volunteered counts even if they later answer "no".
+const DIZZINESS_DANGER =
+  /\b(?:numb(?:ness)?|pins and needles|weak(?:ness)? (?:in|on) (?:one side|my (?:left|right)|one arm|one leg|my face)|face (?:is |feels )?droop\w*|droop\w* face|slurr\w*|can'?t (?:speak|talk|breathe|see)|trouble (?:speaking|breathing|seeing)|short(?:ness)? of breath|chest (?:pain|tight\w*|pressure|hurts)|(?:left )?arm (?:pain|hurts|feels heavy)|fainted|fainting|(?:did|just|almost|nearly) faint|passed out|blacked out|black out|(?:worst|severe|sudden|terrible) headache|seizure|fits?)\b/i;
+
+/** True when a message mentions an emergency sign during a dizziness check. */
+export function mentionsDizzinessDanger(text) {
+  return DIZZINESS_DANGER.test(String(text || ""));
+}
 
 /** Which screening (if any) a message is asking for. */
 export function detectAssessmentIntent(text) {
@@ -301,6 +364,39 @@ export function detectAssessmentIntent(text) {
   for (const [id, patterns] of INTENTS) if (patterns.some((p) => p.test(text))) return id;
   return null;
 }
+
+// Wondering aloud rather than asking: "I don't know if it's depression or
+// I'm just weak", "maybe I have anxiety". These get a button to start the
+// screening under the reply, rather than a quiz out of nowhere.
+const WONDERING = /\b(?:if|whether|maybe|might|may be|not sure|don'?t know|dont know|wonder(?:ing)?|could be|probably|kya)\b/i;
+const OFFER_TOPICS = [
+  ["depression", /\bdepress(?:ed|ion)\b/i],
+  ["anxiety", /\banxiety\b|\banxiety disorder\b/i],
+  ["ocd", /\bocd\b|\bobsessive\b/i],
+  ["adhd", /\badhd\b/i],
+  ["ptsd", /\bptsd\b|\btrauma\b/i],
+  ["alcohol", /\b(?:drinking|drink) (?:too much|a lot|problem)\b|\balcoholic\b/i],
+];
+
+/** Labels for the start button. Each is a phrase detectAssessmentIntent understands. */
+export const OFFER_LABELS = {
+  depression: "Check for depression",
+  anxiety: "Check for anxiety",
+  ocd: "Check for OCD",
+  adhd: "Check for ADHD",
+  ptsd: "Check for PTSD",
+  alcohol: "Check my drinking",
+};
+
+/** A screening worth offering (not starting) for this message, or null. */
+export function detectAssessmentOffer(text) {
+  if (!text || detectAssessmentIntent(text) || !WONDERING.test(text)) return null;
+  return OFFER_TOPICS.find(([, p]) => p.test(text))?.[0] || null;
+}
+
+/** "ok let's do that", "yes", "haan": accepting an offered screening. */
+export const ACCEPTS_OFFER =
+  /^\s*(?:yes|yeah|yep|yup|ok(?:ay)?|sure|go ahead|alright|please|start|haan|ha|han|chalo|theek hai|thik hai|let'?s (?:do|try|start) (?:it|that|this)|ok(?:ay)?,? let'?s (?:do|try) (?:it|that|this))\b/i;
 
 // ---- reading an answer -------------------------------------------------------
 
@@ -323,6 +419,14 @@ export function parseAnswer(question, text) {
   if (labels.includes("yes") && YES.test(t)) return options[labels.indexOf("yes")];
   if (labels.includes("no") && NO.test(t)) return options[labels.indexOf("no")];
   if (labels.includes("not really") && NO.test(t)) return options[labels.indexOf("not really")];
+  // People answer in their own words: "several days i think", "nearly every
+  // day honestly", "umm quite a lot?". An answer named inside the reply
+  // counts; the longest wins, so "a lot" doesn't beat "a little" wrongly
+  // and "not at all" beats "at all".
+  const named = options
+    .filter((o) => new RegExp(String.raw`(?:^|\W)${o.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\W|$)`).test(t))
+    .sort((a, b) => b.label.length - a.label.length);
+  if (named.length) return named[0];
   const partial = options.filter((o) => o.label.toLowerCase().startsWith(t) || (t.length >= 4 && o.label.toLowerCase().includes(t)));
   return partial.length === 1 ? partial[0] : null;
 }

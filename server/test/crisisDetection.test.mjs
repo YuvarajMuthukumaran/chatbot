@@ -135,3 +135,13 @@ test("non-strings and empty input are safe", () => {
   assert.equal(detectCrisis(null), null);
   assert.equal(detectCrisis(42), null);
 });
+
+test("'went to sleep and never woke up' is caught; everyday 'didn't wake up on time' isn't", () => {
+  assertDetects("en", [
+    "honestly ive been thinking it would be easier for everyone if i just went to sleep and never woke up",
+    "i hope i never wake up",
+  ]);
+  assert.equal(detectCrisis("I didnt wake up on time today"), null);
+  assert.equal(detectCrisis("I slept so well I didn't wake up once"), null);
+  assert.equal(detectCrisis("my alarm never woke me up"), null);
+});

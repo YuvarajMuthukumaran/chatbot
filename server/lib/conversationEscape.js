@@ -46,9 +46,16 @@ const CANCEL_AS_ANSWER = new RegExp(LEAD_IN + String.raw`cancel\b`, "i");
  *   the conversation (LLM) instead; "cancel" stops the flow with a plain
  *   acknowledgement; null means it's probably an answer to the flow.
  */
+// Asking to stop partway through a sentence: "honestly this is making me
+// more anxious, can we stop and just talk". (Only at the start of a message
+// was recognised before.)
+const STOP_REQUEST = /\b(?:can we|could we|let'?s|i want to|i'?d like to|please) (?:just )?stop\b|\bstop (?:this|these|the questions|asking)\b|\b(?:no more|enough) questions\b|\bjust (?:want to )?talk\b/i;
+
 export function classifyEscape(text, { flow } = {}) {
   if (!text) return null;
   if (EMOTION_LANGUAGE.some((p) => p.test(text))) return "emotional";
+  // They want to talk instead: hand it to the conversation, which replies.
+  if (STOP_REQUEST.test(text) && flow !== "cancel") return /\btalk\b/i.test(text) ? "emotional" : "cancel";
   if (CANCEL_PHRASES.test(text)) {
     if (flow === "cancel" && CANCEL_AS_ANSWER.test(text)) return null;
     return "cancel";

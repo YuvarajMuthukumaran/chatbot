@@ -14,7 +14,7 @@ import { matchSpecialties, specialtyLabel, getGeneralistDoctor } from "./doctors
 import { checkBookableDate, BOOKING_WINDOW_DAYS, availableSlots as openSlotsFor } from "./slots.js";
 import { parseDate, parseTime, isDateWord } from "./dateParse.js";
 import { clinicToday, addDays, formatDate, formatTime, timeToMinutes } from "./clinicTime.js";
-import { normalizePhone, cleanPersonName } from "./patientDetails.js";
+import { normalizePhone, cleanPersonName, extractPatientDetails } from "./patientDetails.js";
 import { limiters } from "./rateLimit.js";
 import {
   searchDoctors,
@@ -439,6 +439,10 @@ function afterTimeChosen(state, time, prefix = "") {
   state.time = time;
   if (state.flow === "reschedule") return confirmReschedulePrompt(state, prefix);
   if (state.patientName && state.patientPhone) return confirmBookingPrompt(state, prefix);
+  if (state.patientName) {
+    state.stage = "awaiting_phone";
+    return say(`${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is, for ${state.patientName}. And a 10-digit mobile number for the booking?`, [NEVER_MIND]);
+  }
   state.stage = "awaiting_name";
   return say(`${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is. What's the patient's full name?`, [NEVER_MIND]);
 }
@@ -511,6 +515,11 @@ async function handleBookFlow(state, message, ctx) {
       const date = parseDate(message, { strict: true });
       if (date && checkBookableDate(date) === "ok") state.pendingDate = date;
       state.pendingTime = parseTime(message, { strict: true });
+      // "...for my mother, her name is Sunita Devi and number is 98765 01234":
+      // don't ask again for what's already been given.
+      const given = extractPatientDetails(message);
+      if (given.name) state.patientName = given.name;
+      if (given.phone) state.patientPhone = given.phone;
       return resolveDoctorCandidates(state, await attemptSearch(message, { session }), session);
     }
 

@@ -39,6 +39,9 @@ const CRISIS_PATTERNS = {
     // Common variants the phrases above miss.
     /\b(killing myself|kill my ?self|unalive|ending (it all|my life)|end my own life|take my life|taking my (own )?life|nothing (left )?to live for|not worth living|no point (in )?(living|going on)|better off without me|don'?t want to exist|wish i (had )?never (been )?born|wish i (was|were) never born|wanna die|want to be dead|hurting myself|harming myself|slit(ting)? my wrists?|hanging myself)\b/i,
     /\b(?:and|to) never wake up\b/i,
+    // "easier if I just went to sleep and never woke up", "wish I wouldn't wake up".
+    /\b(?:never|not|wouldn'?t) (?:wake|woke|waking) up\b(?!\s+(?:early|late|on time|before|till|until|in time))/i,
+    /\b(?:went|go|going) to sleep (?:and|&) (?:never|not) (?:woke|wake)\b/i,
     /\bwant to end it\b(?!\s+with)/i,
     /\b(?:took|take|taking|swallow(?:ed|ing)?)\s+(?:all|a bunch of|too many|a lot of|lots of|an entire bottle of|the whole bottle of)\s+(?:of\s+)?(?:my |the )?(?:pills|tablets|meds|medicines?|sleeping pills)\b/i,
     // "kms" is internet shorthand for "kill myself" — but not "5 kms away".

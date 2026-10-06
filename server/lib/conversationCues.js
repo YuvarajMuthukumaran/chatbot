@@ -46,6 +46,27 @@ export function offScopeNote(message) {
   return "This message looks like a request for something outside your scope (code, homework, or similar). Follow the hard scope rule: don't do it, decline warmly in one sentence, and offer what you can help with instead. If they're really venting about the task, respond to that feeling instead.";
 }
 
+// "Do I have bipolar?" for a condition with no in-chat screening. Left alone,
+// the model tends to invent its own checklist ("answer yes or no to each…"),
+// which is unvalidated and unscored. (OCD, depression, anxiety, ADHD, PTSD,
+// alcohol and dizziness never reach the model: assessmentFlow.js runs a real
+// screening for those first.)
+const SELF_DIAGNOSIS_QUESTION =
+  /\b(?:i think i (?:have|might have|may have|got)|i (?:might|may) have|do i have|could i have|have i got|am i|is (?:this|it)|could (?:this|it) be)\b[^.?!]{0,30}\b(?:bipolar|manic|mania|schizophreni\w*|psychosis|psychotic|eating disorder|anorexi\w*|bulimi\w*|binge eating|insomnia|autis\w*|asperger\w*|personality disorder|bpd|borderline|npd|narcissis\w*|panic disorder|panic attacks?|social anxiety|phobi\w*|dementia|alzheimer\w*|dyslexi\w*|tourette\w*|hoarding|body dysmorphi\w*|dissociati\w*|mental illness|a mental (?:disorder|problem))\b/i;
+
+/**
+ * A reminder not to improvise a questionnaire, when someone asks whether
+ * they have a condition the chat has no screening for; otherwise null.
+ * @param {string} message
+ */
+export function selfDiagnosisNote(message) {
+  if (!SELF_DIAGNOSIS_QUESTION.test(message)) return null;
+  return (
+    "The person is asking whether they have a condition that has no screening in this chat. Do NOT make up a questionnaire or checklist, ask a list of symptom questions, or suggest what they might have. " +
+    "Respond warmly to what they've noticed, ask at most one gentle question about what's been happening, and explain that only a psychiatrist or psychologist can properly assess it. Offer a Tulasi specialist if it fits."
+  );
+}
+
 /**
  * A greeting sent mid-conversation reads to the model like the start of a
  * new chat, and it would reply "Hey there! How's your day going?" as if it

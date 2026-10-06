@@ -66,6 +66,16 @@ const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS) || 20;
 const TEMPERATURE = Number(process.env.LLM_TEMPERATURE ?? 0.7);
 const MAX_COMPLETION_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 2048;
 
+const MAX_RETRY_WAIT_MS = 8000;
+
+/** How long a 429 says to wait ("Please try again in 4.83s" / "in 1m2s"), in ms, or null. */
+export function retryAfterMs(err) {
+  const header = err?.headers?.get?.("retry-after") ?? err?.headers?.["retry-after"];
+  if (header && !Number.isNaN(Number(header))) return Number(header) * 1000;
+  const m = String(err?.message || "").match(/try again in (?:(\d+)m)?(\d+(?:\.\d+)?)s/i);
+  return m ? (Number(m[1] || 0) * 60 + Number(m[2])) * 1000 : null;
+}
+
 // Worth trying the next model for: rate limits, overload, and requests that
 // never got a response at all (timeouts, connection resets).
 function isRetryable(status) {
@@ -145,6 +155,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
   const messages = toChatMessages(history, message, extraContext, turnNote);
 
   let lastErr = null;
+  let retriedAfterWait = false;
 
   for (let i = 0; i < MODEL_CHAIN.length; i++) {
     const model = MODEL_CHAIN[i];
@@ -191,6 +202,19 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
 
       if (isRetryable(status) && !isLastModel) {
         console.warn(`Model "${model}" unavailable (${status}), falling back to "${MODEL_CHAIN[i + 1]}"`);
+        continue;
+      }
+
+      // Every model is rate-limited, but the last one says it frees up in a
+      // few seconds ("Please try again in 4.8s"): wait once and retry rather
+      // than send the person away. Longer waits (a daily cap) aren't worth
+      // holding the reply for.
+      const waitMs = status === 429 && !retriedAfterWait ? retryAfterMs(err) : null;
+      if (waitMs !== null && waitMs <= MAX_RETRY_WAIT_MS) {
+        retriedAfterWait = true;
+        console.warn(`All models rate-limited; retrying "${model}" in ${Math.ceil(waitMs / 1000)}s`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs + 250));
+        i -= 1;
         continue;
       }
 

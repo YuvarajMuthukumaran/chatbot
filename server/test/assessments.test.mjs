@@ -39,6 +39,12 @@ test("answers can be tapped, numbered, or typed as yes/no in several languages",
   assert.strictEqual(parseAnswer(depression.questions[0], "nearly every day").value, 3);
   assert.strictEqual(parseAnswer(depression.questions[0], "several").value, 1);
   assert.strictEqual(parseAnswer(depression.questions[0], "pizza"), null);
+  // Answers in their own words.
+  assert.strictEqual(parseAnswer(depression.questions[0], "several days i think").value, 1);
+  assert.strictEqual(parseAnswer(depression.questions[0], "nearly every day honestly").value, 3);
+  assert.strictEqual(parseAnswer(depression.questions[0], "honestly not at all").value, 0);
+  assert.strictEqual(parseAnswer(ocd.questions[0], "umm i guess quite a lot? like 10 times").value, 3);
+  assert.strictEqual(parseAnswer(ocd.questions[0], "just a little").value, 1);
 });
 
 test("OCD: OCI-4 of 4+ with real impact is 'Likely'; without signs it's 'Unlikely'", () => {
@@ -148,4 +154,73 @@ test("crisis language mid-screening still gets the crisis reply first", async ()
 test("the website widget never runs a screening", async () => {
   const result = await converse({ channel: "website" }, ["i think i have ocd"]);
   assert.strictEqual(result.handled, false);
+});
+
+test("PTSD: 'I think I have PTSD' runs the PC-PTSD-5 instead of an improvised checklist", async () => {
+  assert.strictEqual(detectAssessmentIntent("i think i have ptsd"), "ptsd");
+  assert.strictEqual(detectAssessmentIntent("could this be post traumatic stress?"), "ptsd");
+
+  const session = {};
+  const first = await converse(session, ["i think i have ptsd"]);
+  assert.deepStrictEqual(first.progress, { title: "PTSD screening", current: 1, total: 6 });
+  assert.match(first.reply, /traumatic/);
+
+  const result = await converse(session, ["Yes", "Yes", "Yes", "No", "Yes", "No"]);
+  assert.strictEqual(result.assessment.label, "Possible"); // 3 = the screen-positive cut-off
+  assert.ok(result.assessment.points.includes("Avoiding reminders"));
+});
+
+test("PTSD: no traumatic event means the screening doesn't apply", async () => {
+  const result = await converse({}, ["do I have ptsd", "No"]);
+  assert.strictEqual(result.assessment.label, "Not applicable");
+  assert.ok(ASSESSMENTS.ptsd.score([1, 1, 1, 1, 1, 0]).likelihood === "likely");
+});
+
+test("conditions with no in-chat screening get a 'don't invent a quiz' note for the model", async () => {
+  const { selfDiagnosisNote } = await import("../lib/conversationCues.js");
+  assert.match(selfDiagnosisNote("do I have bipolar?"), /Do NOT make up a questionnaire/);
+  assert.ok(selfDiagnosisNote("i think i have an eating disorder"));
+  assert.ok(selfDiagnosisNote("am I autistic"));
+  assert.strictEqual(selfDiagnosisNote("my bipolar meds make me tired"), null);
+  assert.strictEqual(selfDiagnosisNote("I feel sad today"), null);
+});
+
+test("wondering about a condition offers a button; 'ok let's do that' then starts the screening", async () => {
+  const { detectAssessmentOffer, OFFER_LABELS } = await import("../lib/assessments.js");
+  assert.strictEqual(detectAssessmentOffer("i dont know if its depression or im just weak"), "depression");
+  assert.strictEqual(detectAssessmentOffer("mujhe lagta hai mujhe ADHD hai kya"), "adhd");
+  assert.strictEqual(detectAssessmentOffer("maybe it's just anxiety"), "anxiety");
+  assert.strictEqual(detectAssessmentOffer("my depression is bad today"), null, "no wondering, no offer");
+  // Every button label is itself something the screening understands.
+  for (const [id, label] of Object.entries(OFFER_LABELS)) assert.strictEqual(detectAssessmentIntent(label), id, label);
+
+  const session = { offeredAssessment: "depression" };
+  const first = await converse(session, ["ok lets do that"]);
+  assert.deepStrictEqual(first.progress, { title: "Depression screening", current: 1, total: 9 });
+
+  const hinglish = await converse({ offeredAssessment: "adhd" }, ["haan chalo"]);
+  assert.strictEqual(hinglish.progress.title, "ADHD screening");
+
+  // The offer lasts one turn only.
+  const later = { offeredAssessment: "depression" };
+  await converse(later, ["what time is it"]);
+  assert.strictEqual((await converse(later, ["yes"])).handled, false);
+});
+
+test("dizziness: danger signs in the person's own words go straight to emergency advice", async () => {
+  const opening = await converse({}, ["i keep feeling dizzy since morning, also my heart is pounding really fast and my left arm feels kind of numb"]);
+  assert.strictEqual(opening.assessment.likelihood, "urgent");
+
+  const session = {};
+  await converse(session, ["I feel dizzy"]);
+  const playedDown = await converse(session, ["no, but i did faint for a second earlier"]);
+  assert.strictEqual(playedDown.assessment.likelihood, "urgent", "a 'no' that mentions fainting still counts");
+});
+
+test("asking to stop partway through a sentence ends the screening", async () => {
+  const session = {};
+  await converse(session, ["i think i have ocd", "a lot"]);
+  const result = await converse(session, ["honestly this is making me more anxious, can we stop and just talk"]);
+  assert.strictEqual(session.assessment, null);
+  assert.strictEqual(result.handled, false, "handed to the conversation, which replies");
 });
