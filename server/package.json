@@ -13,7 +13,7 @@
     "dev:sandbox": "node --watch scripts/sandbox.js",
     "start": "node index.js",
     "import-doctors": "node scripts/importDoctors.js",
-    "test": "node --experimental-test-module-mocks --test"
+    "test": "node --experimental-test-module-mocks --import ./test/setup.mjs --test"
   },
   "dependencies": {
     "cors": "^2.8.5",

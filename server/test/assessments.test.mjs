@@ -224,3 +224,27 @@ test("asking to stop partway through a sentence ends the screening", async () =>
   assert.strictEqual(session.assessment, null);
   assert.strictEqual(result.handled, false, "handed to the conversation, which replies");
 });
+
+test("typos and natural phrasings still start the right screening", () => {
+  const cases = {
+    "i thinks i have ocd": "ocd",
+    "i thnk i hav depresion": "depression",
+    "i think im depressed": "depression",
+    "i might be depressed": "depression",
+    "i feel like i have anxiety": "anxiety",
+    "Is this anxity?": "anxiety",
+    "do i hav ocd": "ocd",
+    "i think i might have adhd": "adhd",
+    "i think its ptsd": "ptsd",
+    "im feeling dizy": "dizziness",
+    "am i an alcholic": "alcohol",
+    "I THINK I HAVE OCD": "ocd",
+  };
+  for (const [message, id] of Object.entries(cases)) assert.strictEqual(detectAssessmentIntent(message), id, message);
+});
+
+test("typo tolerance doesn't create false starts", () => {
+  for (const message of ["my ocd is really bad today", "i hate my anxiety", "i had a fizzy drink", "i think my mom has ocd", "my depression is back"]) {
+    assert.strictEqual(detectAssessmentIntent(message), null, message);
+  }
+});

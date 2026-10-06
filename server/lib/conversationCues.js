@@ -1,4 +1,5 @@
 // Small, deterministic nudges for the model about the message in front of it.
+import { ASKING, normalizeForIntent } from "./assessments.js";
 
 // Just a greeting, nothing else: "sup", "hey there", "hiii", "what's up?",
 // "namaste" — in any case, with or without punctuation.
@@ -51,8 +52,9 @@ export function offScopeNote(message) {
 // which is unvalidated and unscored. (OCD, depression, anxiety, ADHD, PTSD,
 // alcohol and dizziness never reach the model: assessmentFlow.js runs a real
 // screening for those first.)
-const SELF_DIAGNOSIS_QUESTION =
-  /\b(?:i think i (?:have|might have|may have|got)|i (?:might|may) have|do i have|could i have|have i got|am i|is (?:this|it)|could (?:this|it) be)\b[^.?!]{0,30}\b(?:bipolar|manic|mania|schizophreni\w*|psychosis|psychotic|eating disorder|anorexi\w*|bulimi\w*|binge eating|insomnia|autis\w*|asperger\w*|personality disorder|bpd|borderline|npd|narcissis\w*|panic disorder|panic attacks?|social anxiety|phobi\w*|dementia|alzheimer\w*|dyslexi\w*|tourette\w*|hoarding|body dysmorphi\w*|dissociati\w*|mental illness|a mental (?:disorder|problem))\b/i;
+const UNSCREENED_CONDITIONS = String.raw`(?:bipolar|bipoler|manic|mania|schizophreni\w*|skitzo\w*|psychosis|psychotic|eating disorder|anorexi\w*|bulimi\w*|binge eating|insomnia|autis\w*|asperger\w*|personality disorder|bpd|borderline|npd|narcissis\w*|panic disorder|panic attacks?|social anxiety|phobi\w*|dementia|alzheimer\w*|dyslexi\w*|tourette\w*|hoarding|body dysmorphi\w*|dissociati\w*|mental illness|a mental (?:disorder|problem))`;
+// Same ways of asking as the screenings use, matched on typo-fixed text.
+const SELF_DIAGNOSIS_QUESTION = new RegExp(String.raw`\b${ASKING}\b[^.?!]{0,30}\b${UNSCREENED_CONDITIONS}\b`, "i");
 
 /**
  * A reminder not to improvise a questionnaire, when someone asks whether
@@ -60,7 +62,7 @@ const SELF_DIAGNOSIS_QUESTION =
  * @param {string} message
  */
 export function selfDiagnosisNote(message) {
-  if (!SELF_DIAGNOSIS_QUESTION.test(message)) return null;
+  if (!SELF_DIAGNOSIS_QUESTION.test(normalizeForIntent(message))) return null;
   return (
     "The person is asking whether they have a condition that has no screening in this chat. Do NOT make up a questionnaire or checklist, ask a list of symptom questions, or suggest what they might have. " +
     "Respond warmly to what they've noticed, ask at most one gentle question about what's been happening, and explain that only a psychiatrist or psychologist can properly assess it. Offer a Tulasi specialist if it fits."

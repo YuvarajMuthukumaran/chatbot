@@ -70,7 +70,8 @@ export async function getAvailableSlots(doctorId, date) {
     .find({ doctorId: String(doctorId), date: String(date), status: "booked" })
     .project({ time: 1 })
     .toArray();
-  return availableSlots(rows.map((r) => r.time), { date });
+  const doctor = await getDoctorById(doctorId);
+  return availableSlots(rows.map((r) => r.time), { date, doctorName: doctor?.name });
 }
 
 export async function bookAppointment({ doctorId, doctorName, patientName, patientPhone, date, time }) {

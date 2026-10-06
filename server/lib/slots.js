@@ -1,8 +1,9 @@
 import { clinicToday, clinicMinutesNow, addDays, timeToMinutes } from "./clinicTime.js";
+import { scheduleSlots } from "./schedules.js";
 
-// Fixed daily slot template — every 30 minutes, 9am–1pm and 2pm–5pm
-// (a lunch gap), the same for every doctor since none of the scraped
-// doctor data includes real per-doctor working hours.
+// Default daily slot template — every 30 minutes, 9am–1pm and 2pm–5pm (a lunch gap).
+// Doctors with published OPD timings (see schedules.js) use those instead; this template
+// is only the fallback for a doctor we have no timings for.
 const MORNING = { startHour: 9, endHour: 13 };
 const AFTERNOON = { startHour: 14, endHour: 17 };
 const SLOT_MINUTES = 30;
@@ -30,12 +31,14 @@ export function allDailySlots() {
 
 /**
  * @param {string[]} bookedTimes - times already booked for this doctor+date
- * @param {{date?: string, now?: Date}} [options] - when `date` is today (at
- *   the clinic), slots that have already passed are left out too.
+ * @param {{date?: string, now?: Date, doctorName?: string}} [options] - when `date` is today (at
+ *   the clinic), slots that have already passed are left out too. With `doctorName` and `date`,
+ *   only times inside that doctor's published OPD hours on that weekday are offered.
  */
-export function availableSlots(bookedTimes, { date, now = new Date() } = {}) {
+export function availableSlots(bookedTimes, { date, now = new Date(), doctorName } = {}) {
   const booked = new Set(bookedTimes);
-  let slots = allDailySlots().filter((t) => !booked.has(t));
+  const own = doctorName && date ? scheduleSlots(doctorName, date) : null;
+  let slots = (own ?? allDailySlots()).filter((t) => !booked.has(t));
   if (date && date === clinicToday(now)) {
     const cutoff = clinicMinutesNow(now) + SAME_DAY_LEAD_MINUTES;
     slots = slots.filter((t) => timeToMinutes(t) >= cutoff);
@@ -56,7 +59,11 @@ export function isValidDate(date) {
 }
 
 export function isValidSlotTime(time) {
-  return typeof time === "string" && TIME_PATTERN.test(time) && allDailySlots().includes(time);
+  if (typeof time !== "string" || !TIME_PATTERN.test(time)) return false;
+  if (allDailySlots().includes(time)) return true;
+  // Evening OPDs: any half-hour start up to 8:30 pm that some doctor publishes.
+  const [h, m] = time.split(":").map(Number);
+  return h >= 6 && h < 21 && m % SLOT_MINUTES === 0;
 }
 
 /**

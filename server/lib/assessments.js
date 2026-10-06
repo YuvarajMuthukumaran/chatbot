@@ -330,7 +330,37 @@ export const ASSESSMENTS = {
 
 // ---- recognising a request ---------------------------------------------------
 
-const ASKING = String.raw`(?:i think i (?:have|might have|may have|got)|i (?:might|may) have|do i have|could i have|have i got|am i|is (?:this|it)|could (?:this|it) be|test me for|check (?:me |if i have )?(?:for )?)`;
+// Typos people actually make on a phone keyboard, fixed before matching:
+// "i thinks i have ocd", "i thnk i hav depresion", "im feeling dizy".
+// Explicit lists rather than fuzzy matching on short words: a loose "dizzy"
+// would also match "fizzy", and a loose "have" would match "hate".
+const TYPO_FIXES = [
+  [/\b(?:thinks|thnk|thnks|thik|tink|thinkk|thikn|tihnk|thnik|thing|thinl|thibk)\b/g, "think"],
+  [/\b(?:hav|hve|haev|ahve|hae|hv|hav'?e)\b/g, "have"],
+  [/\b(?:im|i'm|iam|i m)\b/g, "i am"],
+  [/\b(?:depresion|depresssion|deppression|depressoin|depressio|deprssion|depresison|depreshun|dipression|depresn)\b/g, "depression"],
+  [/\b(?:depresed|depressd|deppressed|dipressed|depresssed)\b/g, "depressed"],
+  [/\b(?:anxity|anxeity|anixety|anxiaty|anxitey|anziety|axiety|anxeity|anixity|anxiety's|anxeity|anxity|anxirty|anxierty)\b/g, "anxiety"],
+  [/\b(?:o\.c\.d|o c d|odc|ocd's)\b/g, "ocd"],
+  [/\b(?:a\.d\.h\.d|adhd's|adhs|adhdd)\b/g, "adhd"],
+  [/\b(?:ptds|p\.t\.s\.d|ptsd's)\b/g, "ptsd"],
+  [/\b(?:dizy|dizzzy|dizzi|dizzey|dizyy|dizz|dizzt|dizzu)\b/g, "dizzy"],
+  [/\b(?:diziness|dizzyness|dizzines|dizinness|dizzness)\b/g, "dizziness"],
+  [/\b(?:alcholic|alchoholic|alcoholik|alcohalic)\b/g, "alcoholic"],
+];
+
+/** Lower-cased text with common typos fixed, for intent matching only. */
+export function normalizeForIntent(text) {
+  let t = String(text || "").toLowerCase().replace(/[’`]/g, "'");
+  for (const [pattern, fix] of TYPO_FIXES) t = t.replace(pattern, fix);
+  return t;
+}
+
+// Ways of asking "might I have X?". Each one names the person themselves
+// ("i think I…", "do I…", "is this…"), so "my OCD is bad today" (a diagnosis
+// they already know) doesn't start a screening. Softer wondering ("maybe
+// it's anxiety") gets a button instead: see detectAssessmentOffer.
+export const ASKING = String.raw`(?:i (?:think|feel like|guess|believe|suspect) (?:i|i am|it'?s|its|this is|this might be)|i (?:might|may|could) (?:have|be|am)|do i have|could i have|have i got|am i|is (?:this|it)|could (?:this|it) be|test me for|check (?:me |if i have )?(?:for )?)`;
 const about = (condition) => new RegExp(String.raw`\b${ASKING}\b[^.?!]{0,30}\b(?:${condition})\b`, "i");
 
 const INTENTS = [
@@ -361,7 +391,8 @@ export function mentionsDizzinessDanger(text) {
 /** Which screening (if any) a message is asking for. */
 export function detectAssessmentIntent(text) {
   if (!text) return null;
-  for (const [id, patterns] of INTENTS) if (patterns.some((p) => p.test(text))) return id;
+  const t = normalizeForIntent(text);
+  for (const [id, patterns] of INTENTS) if (patterns.some((p) => p.test(t))) return id;
   return null;
 }
 
@@ -390,8 +421,10 @@ export const OFFER_LABELS = {
 
 /** A screening worth offering (not starting) for this message, or null. */
 export function detectAssessmentOffer(text) {
-  if (!text || detectAssessmentIntent(text) || !WONDERING.test(text)) return null;
-  return OFFER_TOPICS.find(([, p]) => p.test(text))?.[0] || null;
+  if (!text || detectAssessmentIntent(text)) return null;
+  const t = normalizeForIntent(text);
+  if (!WONDERING.test(t)) return null;
+  return OFFER_TOPICS.find(([, p]) => p.test(t))?.[0] || null;
 }
 
 /** "ok let's do that", "yes", "haan": accepting an offered screening. */
