@@ -24,12 +24,19 @@ const EMOTION_LANGUAGE = [
 // An explicit "stop this", recognized only at the start of the message, so an
 // answer that merely contains "stop" or "cancel" somewhere isn't mistaken
 // for walking away from the flow.
-const CANCEL_PHRASES =
-  /^\s*(?:no,?\s+)?(?:please\s+)?(?:cancel|stop|quit|exit|never\s*mind|nevermind|nvm|forget\s+(?:it|about\s+it)|not\s+now|leave\s+it|skip\s+it|no\s+thanks?|i\s+changed\s+my\s+mind|i\s+don'?t\s+want\s+to\s+(?:continue|do\s+this))\b/i;
+// Filler people put in front ("actually never mind", "ok stop", "sorry, not
+// now") is allowed; Hindi exits ("rehne do", "chhodo", "abhi nahi") count too.
+const LEAD_IN = String.raw`^\s*(?:(?:actually|oh|um+|ok(?:ay)?|sorry|wait|hmm+|no|acha|achha|arre)[,.!]?\s+)*(?:please\s+)?`;
+const CANCEL_PHRASES = new RegExp(
+  LEAD_IN +
+    // "cancel my appointment" is a request to cancel one, not an exit.
+    String.raw`(?:cancel(?!\s+(?:(?:my|the|an|this|that)\s+)?(?:appointment|booking))|stop|quit|exit|never\s*mind|nevermind|nvm|forget\s+(?:it|about\s+it)|not\s+now|leave\s+it|skip\s+it|no\s+thanks?|i\s+changed\s+my\s+mind|i\s+don'?t\s+want\s+to\s+(?:continue|do\s+this)|rehne\s+do|rahne\s+do|chho?do|chhod\s+do|abhi\s+nahi|baad\s+mein)\b`,
+  "i"
+);
 
 // Inside the cancellation flow itself, "cancel" is the answer, not an exit:
 // "yes, cancel it" at "Cancel this appointment? (yes/no)" must go through.
-const CANCEL_AS_ANSWER = /^\s*(?:no,?\s+)?(?:please\s+)?cancel\b/i;
+const CANCEL_AS_ANSWER = new RegExp(LEAD_IN + String.raw`cancel\b`, "i");
 
 /**
  * @param {string} text

@@ -3,7 +3,10 @@
 // narrow so ordinary words don't misfire ("my admission" alone is too
 // generic; could mean a college admission, an admission of guilt, etc.).
 const INTENT_PATTERNS = {
-  admission: /\badmission status\b|\bam i (still )?admitted\b|\bstill admitted\b|\bhospital admission\b|\bmy admission status\b/i,
+  // "my hospital admission", not a bare "hospital admission": families ask
+  // about getting someone admitted ("hospital admission for my father") far
+  // more often than patients ask about their own status.
+  admission: /\badmission status\b|\bam i (still )?admitted\b|\bstill admitted\b|\bmy hospital admission\b|\bmy admission status\b/i,
   discharge: /\bdischarge summary\b|\bwhen (was|am|will) i (be )?discharged\b|\bmy discharge\b/i,
   // A bare "my appointments" is NOT claimed here any more: since the booking
   // system arrived it usually means upcoming bookings, so bookingIntent.js

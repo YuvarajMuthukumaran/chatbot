@@ -443,6 +443,17 @@ function afterTimeChosen(state, time, prefix = "") {
   return say(`${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is. What's the patient's full name?`, [NEVER_MIND]);
 }
 
+// Parts of the day, matching how formatSlotList splits Morning/Afternoon.
+const PARTS_OF_DAY = [
+  { label: "Morning", pattern: /\b(?:morning|subah|savere|kaalai|kalai|udayam|poddunna)\b|सुबह|காலை|ఉదయం/i, test: (m) => m < 13 * 60 },
+  { label: "Afternoon", pattern: /\b(?:afternoon|lunch|dopahar|dophar|madhyanam|madhyaahnam)\b|दोपहर|மதியம்|మధ్యాహ్నం/i, test: (m) => m >= 13 * 60 && m < 16 * 60 },
+  { label: "Evening", pattern: /\b(?:evening|shaam|sham|maalai|malai|sayantram|saayantram)\b|शाम|மாலை|సాయంత్రం/i, test: (m) => m >= 16 * 60 },
+];
+
+function partOfDay(message) {
+  return PARTS_OF_DAY.find((p) => p.pattern.test(message)) || null;
+}
+
 /** A time answer. Naming a different day instead ("actually, Friday?" or
  * "tomorrow at 10") switches days, keeping any time given along with it. */
 async function handleTimeAnswer(state, message, doctorId) {
@@ -454,6 +465,21 @@ async function handleTimeAnswer(state, message, doctorId) {
     return handleDateAnswer(state, message, doctorId);
   }
   if (time && state.availableSlots.includes(time)) return afterTimeChosen(state, time);
+  // "morning" / "shaam ko": narrow the list instead of repeating all of it.
+  const period = time ? null : partOfDay(message);
+  if (period) {
+    const inPeriod = state.availableSlots.filter((t) => period.test(timeToMinutes(t)));
+    if (inPeriod.length) {
+      return say(`${period.label} times on **${formatDate(state.date)}**: ${inPeriod.map(formatTime).join(", ")}. Which one works?`, [
+        ...inPeriod.map(formatTime),
+        NEVER_MIND,
+      ]);
+    }
+    return say(
+      `There's nothing open in the ${period.label.toLowerCase()} on ${formatDate(state.date)}. These times are free:\n${formatSlotList(state.availableSlots)}`,
+      [...state.availableSlots.map(formatTime), NEVER_MIND]
+    );
+  }
   const lead = time ? `${formatTime(time)} isn't open on ${formatDate(state.date)}. ` : "";
   return say(`${lead}Please pick one of these times:\n${formatSlotList(state.availableSlots)}`, [
     ...state.availableSlots.map(formatTime),

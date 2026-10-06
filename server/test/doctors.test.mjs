@@ -3,6 +3,7 @@ import assert from "node:assert";
 import {
   matchSpecialties,
   wantsDoctorHelp,
+  doctorHelpReason,
   getDoctorsForSpecialties,
   getGeneralistDoctor,
   SPECIALTY_LABELS,
@@ -19,6 +20,28 @@ test("wantsDoctorHelp — explicit asks and real distress trigger it", () => {
 test("wantsDoctorHelp — merely naming a feeling once does not trigger it", () => {
   assert.equal(wantsDoctorHelp("i feel very anxious"), false);
   assert.equal(wantsDoctorHelp("i feel very sad"), false);
+});
+
+test("one hard day is heard, not referred — only distress that keeps coming up counts", () => {
+  assert.equal(wantsDoctorHelp("I had a really hard day, everything feels heavy"), false);
+  assert.equal(wantsDoctorHelp("I'm so exhausted"), false);
+  assert.equal(wantsDoctorHelp("I'm worried about tomorrow"), false);
+  assert.equal(doctorHelpReason("I'm so exhausted", ["work has been really hard lately"]), "concern");
+  assert.equal(doctorHelpReason("I'm so exhausted", ["hey", "I watched a movie"]), null);
+});
+
+test("ongoing or worsening distress, and asks for treatment, still count on their own", () => {
+  assert.equal(doctorHelpReason("it's been getting worse for months"), "concern");
+  assert.equal(doctorHelpReason("I can't cope anymore"), "concern");
+  assert.equal(doctorHelpReason("we need admission for my father"), "explicit");
+  assert.equal(doctorHelpReason("papa ka ilaaj karwana hai"), "explicit");
+  assert.equal(doctorHelpReason("मेरे भाई का इलाज कहाँ होगा"), "explicit");
+});
+
+test("mentioning a doctor they already have isn't asking for one", () => {
+  assert.equal(doctorHelpReason("my doctor started me on sertraline, what side effects should I expect?"), null);
+  assert.equal(doctorHelpReason("the psychiatrist said to keep taking it"), null);
+  assert.equal(doctorHelpReason("I need a doctor, my old doctor retired"), "explicit");
 });
 
 test("wantsDoctorHelp — meta-commentary about the bot's own behavior doesn't trigger the fuzzy fallback", () => {

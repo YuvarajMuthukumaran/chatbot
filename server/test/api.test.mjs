@@ -1,6 +1,7 @@
 // End-to-end over HTTP: the real Express app on a throwaway port, backed by
-// the in-memory fake database. The Groq key is built into the code, so no
-// test here sends a message that would reach the LLM (it'd call Groq for real).
+// the in-memory fake database. No test here sends a message that would reach
+// the LLM, and the key is cleared so one that slipped through couldn't call
+// Groq for real.
 import { test, before, after } from "node:test";
 import assert from "node:assert";
 import { createFakeDb } from "../scripts/fakeDb.js";
@@ -8,6 +9,7 @@ import { setDb } from "../lib/db.js";
 import { app } from "../app.js";
 import { clinicToday, addDays } from "../lib/clinicTime.js";
 
+process.env.GROQ_API_KEY = "";
 delete process.env.ADMIN_TOKEN;
 // Never the hospital's real HMS from tests (it creates a patient record on
 // every unmatched lookup) — a dead local address makes sure of it.
@@ -97,6 +99,9 @@ test("chat — crisis replies are deterministic and flagged", async () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].crisis, true);
   assert.match(events[0].text, /8800000255/);
+  // Never the clinic line alone: a 24/7 helpline and 112 are always there too.
+  assert.match(events[0].text, /14416/);
+  assert.match(events[0].text, /112/);
 });
 
 test("chat — booking replies carry quick replies", async () => {

@@ -6,7 +6,9 @@ import sessionRoutes from "./routes/session.js";
 import chatRoutes from "./routes/chat.js";
 import doctorsRoutes from "./routes/doctors.js";
 import appointmentsRoutes from "./routes/appointments.js";
+import authRoutes from "./routes/auth.js";
 import matchRoutes from "./routes/match.js";
+import medicinesRoutes from "./routes/medicines.js";
 import { getDb, getLastDbError } from "./lib/db.js";
 import { getApiKey, getLastLlmError } from "./lib/llmClient.js";
 
@@ -29,7 +31,8 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   next();
 });
-app.use(cors({ origin: allowedOrigins }));
+// credentials: the website's patient portal sends its httpOnly session cookie.
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 // Room for a restored conversation (POST /api/session: up to 20 turns, and
 // Indic scripts take 3 bytes a character); chat messages themselves are
 // capped separately (routes/chat.js).
@@ -50,7 +53,9 @@ app.use("/api", sessionRoutes);
 app.use("/api", chatRoutes);
 app.use("/api", doctorsRoutes);
 app.use("/api", appointmentsRoutes);
+app.use("/api", authRoutes);
 app.use("/api", matchRoutes);
+app.use("/api", medicinesRoutes);
 
 app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {

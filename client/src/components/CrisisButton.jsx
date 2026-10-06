@@ -37,7 +37,12 @@ export default function CrisisButton() {
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.96 }}
-        className="fixed right-3 top-20 z-50 flex h-12 w-12 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-crisis to-crisis-dark font-semibold text-white shadow-lg shadow-crisis/30 ring-1 ring-white/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-crisis/40 xl:right-6 xl:top-auto xl:bottom-6 xl:h-auto xl:w-auto xl:px-5 xl:py-3"
+        // Below xl it sits in the right end of the top bar, where Layout
+        // reserves room for it (header pr-14 / sm:pr-16), so it never covers
+        // page content. It stays a sibling of the header rather than a child:
+        // the header's transform and backdrop blur would trap this fixed
+        // button and its dialog inside the header's box.
+        className="fixed right-4 top-3 z-50 flex h-10 w-10 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-crisis to-crisis-dark font-semibold text-white shadow-lg shadow-crisis/30 ring-1 ring-white/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-crisis/40 sm:right-9 sm:top-[26px] sm:h-11 sm:w-11 xl:right-6 xl:top-auto xl:bottom-6 xl:h-auto xl:w-auto xl:px-5 xl:py-3"
       >
         <span aria-hidden="true" className="text-xl xl:text-base">☎</span>
         <span className="hidden xl:inline">Get Immediate Help</span>
@@ -68,8 +73,8 @@ export default function CrisisButton() {
                 You deserve support right now
               </h2>
               <p className="mt-2 text-slate-600">
-                If you're in immediate danger, please contact emergency services. Otherwise, these are
-                reachable right now, free of charge, in {resources.label}:
+                If you're in immediate danger, please contact emergency services. Otherwise, you can
+                reach these right now in {resources.label}:
               </p>
               <ul className="mt-4 space-y-3">
                 {resources.lines.map((line) => (

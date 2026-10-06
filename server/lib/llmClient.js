@@ -22,15 +22,17 @@ function recordError(err, status, model) {
   };
 }
 
-// Test deployment: paste the test Groq key between the quotes below so the
-// app runs with no environment setup. GROQ_API_KEY, when set, overrides it
-// (an empty GROQ_API_KEY means "no key" — the tests use that). Before
-// production, empty this again, rotate the key, and use the environment only.
-const TEST_GROQ_API_KEY = "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";
-
+// The key comes from the environment only (server/.env locally, the host's
+// environment settings in production). Never put it in the code: this repo
+// is public, and a committed key is a leaked key.
 export function getApiKey() {
-  return "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";
+  return process.env.GROQ_API_KEY?.trim() || "";
 }
+
+// The SDK's defaults (10-minute timeout, 2 silent retries) would leave
+// someone staring at a typing indicator for minutes. Fail fast instead and
+// let the model chain below try the next model.
+const REQUEST_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 30000;
 
 function getClient() {
   if (!client) {
@@ -38,7 +40,7 @@ function getClient() {
     if (!apiKey) {
       throw new Error("GROQ_API_KEY is not set. Add it to server/.env (or the host's environment settings).");
     }
-    client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+    client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1", timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
   }
   return client;
 }
@@ -57,6 +59,18 @@ const MODEL_CHAIN = [
 ];
 
 const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS) || 20;
+
+// A little below the default of 1: still varied and warm, less prone to
+// wandering off-script on facts. The token cap bounds cost and latency (it
+// includes reasoning tokens on reasoning models, so it can't be tiny).
+const TEMPERATURE = Number(process.env.LLM_TEMPERATURE ?? 0.7);
+const MAX_COMPLETION_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 2048;
+
+// Worth trying the next model for: rate limits, overload, and requests that
+// never got a response at all (timeouts, connection resets).
+function isRetryable(status) {
+  return status === undefined || status === 429 || status === 502 || status === 503 || status === 504;
+}
 
 const CONNECTION_TROUBLE =
   "I'm having a little trouble connecting right now. Please try again in a moment — and if this keeps happening, know that Tulasi Health Care's team is always reachable directly too.";
@@ -138,13 +152,13 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
 
     if (abortSignal?.aborted) return { ok: false, aborted: true, text: "" };
 
+    let full = "";
     try {
       const stream = await ai.chat.completions.create(
-        { model, messages, stream: true },
+        { model, messages, stream: true, temperature: TEMPERATURE, max_completion_tokens: MAX_COMPLETION_TOKENS },
         { signal: abortSignal }
       );
 
-      let full = "";
       for await (const chunk of stream) {
         const text = chunk.choices?.[0]?.delta?.content;
         if (text) {
@@ -168,7 +182,14 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
       const status = getErrorStatus(err);
       recordError(err, status, model);
 
-      if ((status === 429 || status === 503 || status === 502 || status === 504) && !isLastModel) {
+      if (full) {
+        // Failed mid-stream: the person has already seen part of a reply, so
+        // another model's answer would be glued onto it. Stop here instead.
+        console.error(`Model "${model}" failed mid-reply:`, err?.message || err);
+        return { ok: false, rateLimited: false, text: CONNECTION_TROUBLE };
+      }
+
+      if (isRetryable(status) && !isLastModel) {
         console.warn(`Model "${model}" unavailable (${status}), falling back to "${MODEL_CHAIN[i + 1]}"`);
         continue;
       }

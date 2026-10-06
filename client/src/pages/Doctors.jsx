@@ -25,8 +25,8 @@ function DoctorCard({ doctor, index }) {
           </div>
         )}
         <div className="min-w-0">
-          <div className="truncate font-semibold text-blue-900">{doctor.name}</div>
-          <div className="truncate text-sm text-blue-600/80">{doctor.role}</div>
+          <div className="break-words font-semibold leading-snug text-blue-900">{doctor.name}</div>
+          <div className="text-sm leading-snug text-blue-600/80">{doctor.role}</div>
         </div>
       </div>
 

@@ -6,7 +6,11 @@ import { readJson, writeJson } from "./storage.js";
 // server once a session exists.
 export const FALLBACK_CRISIS_RESOURCES = {
   label: "India",
-  lines: [{ name: "Tulasi Health Care", phone: "8800000255", type: "call" }],
+  lines: [
+    { name: "Tulasi Health Care", phone: "8800000255", type: "call" },
+    { name: "Tele-MANAS (free, 24/7)", phone: "14416", type: "call" },
+    { name: "Emergency services", phone: "112", type: "call" },
+  ],
 };
 
 const STORAGE_KEY = "yuvaraj.crisisResources";

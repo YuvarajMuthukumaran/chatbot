@@ -22,6 +22,15 @@ const TEMPLATES = {
     `${lines}\n\n` +
     `अगर संभव हो, तो किसी भरोसेमंद व्यक्ति से भी बात करें — कोई दोस्त, परिवार का सदस्य, या Tulasi Health Care के किसी विशेषज्ञ से — ताकि यह बोझ आपको अकेले न उठाना पड़े। मैं अब भी यहां आपसे बात करने के लिए मौजूद हूं।`,
 
+  // Hindi in Roman letters, for people who typed Hinglish: many of them read
+  // Devanagari slowly or not at all, and this reply has to land at once.
+  hi_latn: (label, lines) =>
+    `Aapne yeh baat mujhse share ki, iske liye shukriya. Please jaan lijiye ki abhi aap akele nahi hain. ` +
+    `Aap jo mehsoos kar rahe hain woh maayne rakhta hai, aur yeh itna gambhir hai ki abhi kisi aise insaan se baat karna zaroori hai jo turant madad kar sake. Isliye nahi ki yahan aapki baat nahi suni ja rahi, balki isliye ki aap isse kahin zyada sahare ke haqdaar hain.\n\n` +
+    `Agar aap ${label} mein hain aur abhi khatre mein hain, toh please turant inmein se kisi se sampark karein:\n\n` +
+    `${lines}\n\n` +
+    `Agar ho sake, toh kisi bharosemand insaan se bhi baat karein (koi dost, family member, ya Tulasi Health Care ke kisi expert se), taaki yeh bojh aapko akele na uthana pade. Main abhi bhi yahan aapse baat karne ke liye hoon.`,
+
   ta: (label, lines) =>
     `நீங்கள் இதை என்னிடம் பகிர்ந்ததில் எனக்கு மிகவும் மகிழ்ச்சி — தயவுசெய்து புரிந்துகொள்ளுங்கள், இப்போது நீங்கள் தனியாக இல்லை. ` +
     `நீங்கள் உணர்வது முக்கியமானது, அது மிகவும் தீவிரமானது என்பதால் உடனடியாக உதவ முடியும் ஒரு நபரைத் தொடர்பு கொள்வது நல்லது — நான் கேட்க விரும்பாததால் அல்ல, மாறாக நீங்கள் இதைவிட அதிக ஆதரவுக்கு தகுதியானவர் என்பதால்.\n\n` +
@@ -37,7 +46,14 @@ const TEMPLATES = {
     `వీలైతే, మీరు నమ్మే వ్యక్తితో కూడా మాట్లాడండి — ఒక స్నేహితుడు, కుటుంబ సభ్యుడు, లేదా Tulasi Health Care నిపుణుడు — తద్వారా మీరు దీన్ని ఒంటరిగా మోయాల్సిన అవసరం లేదు. నేను ఇప్పటికీ మీతో మాట్లాడటానికి ఇక్కడ ఉన్నాను.`,
 };
 
-export function buildCrisisReply(region, lang = "en") {
+/**
+ * @param {string} region
+ * @param {string} [lang] - from detectCrisis
+ * @param {string} [message] - the person's message: Hindi typed without any
+ *   Devanagari gets the Roman-letter (Hinglish) template.
+ */
+export function buildCrisisReply(region, lang = "en", message = "") {
+  if (lang === "hi" && message && !/\p{Script=Devanagari}/u.test(message)) lang = "hi_latn";
   const resources = getCrisisResources(region);
   // "- " (real Markdown list syntax) so the client renders this as an
   // actual scannable list — a single "\n" between plain lines would just

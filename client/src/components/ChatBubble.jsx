@@ -28,7 +28,35 @@ const markdownComponents = {
   code: ({ children }) => <code className="rounded bg-black/5 px-1 py-0.5 text-[0.9em]">{children}</code>,
 };
 
-export default function ChatBubble({ role, text, crisis, failed, doctors, onBookDoctor }) {
+// Cards under a reply that open the medicine guide or a self check-in.
+function ToolLinks({ links }) {
+  return (
+    <div className="mt-2 flex flex-col gap-2 border-t border-blue-100 pt-2">
+      {links.map((link) => (
+        <Link
+          key={link.to}
+          to={link.to}
+          className="group flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-blue-100 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        >
+          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-lavender-100 text-lg">
+            {link.kind === "medicine" ? "💊" : "📋"}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-blue-900">{link.label}</span>
+            <span className="block text-xs text-slate-500">
+              {link.kind === "medicine" ? "Uses, side effects & what to watch for" : "A short private questionnaire, not a diagnosis"}
+            </span>
+          </span>
+          <span aria-hidden="true" className="text-blue-600 transition-transform group-hover:translate-x-0.5">
+            →
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export default function ChatBubble({ role, text, crisis, failed, doctors, links, onBookDoctor }) {
   const isUser = role === "user";
   return (
     <motion.div
@@ -63,14 +91,19 @@ export default function ChatBubble({ role, text, crisis, failed, doctors, onBook
                         src={d.photo}
                         alt={d.name}
                         loading="lazy"
-                        className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-blue-100"
+                        className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-blue-100 sm:h-16 sm:w-16"
                       />
                     ) : (
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-700 ring-1 ring-blue-100">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-lg font-semibold text-blue-700 ring-1 ring-blue-100 sm:h-16 sm:w-16">
                         {d.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*(\([^)]*\)\s*)?/i, "").charAt(0)}
                       </div>
                     )}
-                    <div className="min-w-0 flex-1 truncate text-sm font-semibold text-blue-900">{d.name}</div>
+                    {/* Names wrap rather than truncate: "Dr. (Col.) Pavan Kumar
+                        Pardal" cut to "Dr. (Col.) Pa…" is no use to anyone. */}
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words text-sm font-semibold leading-snug text-blue-900">{d.name}</div>
+                      {d.role && <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-500">{d.role}</div>}
+                    </div>
                     {onBookDoctor && (
                       <button
                         type="button"
@@ -85,6 +118,7 @@ export default function ChatBubble({ role, text, crisis, failed, doctors, onBook
                 ))}
               </div>
             )}
+            {links?.length > 0 && <ToolLinks links={links} />}
           </>
         )}
       </div>

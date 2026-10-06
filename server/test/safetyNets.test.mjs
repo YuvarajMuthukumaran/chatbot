@@ -45,6 +45,14 @@ test("classifyEscape — explicit cancels, but only at the start of a message", 
   assert.equal(classifyEscape("No, don't book", { flow: "book" }), null, "the flow's own 'no' handles this");
 });
 
+test("classifyEscape — filler before the exit, and Hindi exits, still stop the flow", () => {
+  for (const message of ["actually never mind", "ok stop", "sorry, not now", "Oh, forget it", "rehne do", "chhodo yaar", "abhi nahi"]) {
+    assert.equal(classifyEscape(message, { flow: "book" }), "cancel", message);
+  }
+  assert.equal(classifyEscape("actually, Dr. Pooja Sharma", { flow: "book" }), null);
+  assert.equal(classifyEscape("actually cancel it", { flow: "cancel" }), null);
+});
+
 test("classifyEscape — in the cancel flow, 'cancel' is an answer, not an exit", () => {
   assert.equal(classifyEscape("cancel it", { flow: "cancel" }), null);
   assert.equal(classifyEscape("cancel the second one", { flow: "cancel" }), null);
@@ -126,4 +134,22 @@ test("private (booking/records) turns never reach the LLM — only a note does",
   assert.ok(serialized.includes("booked an appointment with Dr. Pooja Sharma"));
   assert.equal(messages.filter((m) => m.role === "system").length, 2, "system prompt + one note for the private block");
   assert.deepEqual(messages.at(-1), { role: "user", content: "thanks, I'm nervous about it" });
+});
+
+test("Hinglish crisis messages get the crisis reply in Roman letters", async () => {
+  const { buildCrisisReply } = await import("../lib/crisisTemplate.js");
+  const roman = buildCrisisReply("IN", "hi", "mujhe marne ka mann kar raha hai");
+  assert.match(roman, /akele nahi hain/);
+  assert.doesNotMatch(roman, /\p{Script=Devanagari}/u);
+  assert.match(roman, /14416/);
+  assert.match(buildCrisisReply("IN", "hi", "मुझे मरना है"), /अकेले नहीं हैं/);
+});
+
+test("code/homework requests get a decline reminder, venting about them doesn't", async () => {
+  const { offScopeNote } = await import("../lib/conversationCues.js");
+  assert.ok(offScopeNote("write me a python script to scrape a website"));
+  assert.ok(offScopeNote("can you do my homework"));
+  assert.ok(offScopeNote("please write an essay on climate change"));
+  assert.strictEqual(offScopeNote("I can't do my homework, I'm so stressed"), null);
+  assert.strictEqual(offScopeNote("my code keeps failing and I feel useless"), null);
 });

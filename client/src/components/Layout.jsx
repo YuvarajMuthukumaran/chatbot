@@ -3,10 +3,14 @@ import { motion } from "framer-motion";
 import CrisisButton from "./CrisisButton.jsx";
 import logo from "../assets/tulasi-logo.webp";
 
+// `short` is the visible label (from lg up); `label` is what screen readers
+// and tooltips get.
 const NAV_LINKS = [
-  { to: "/", label: "Chat", icon: "💬", end: true },
-  { to: "/doctors", label: "Find a Doctor", icon: "🩺" },
-  { to: "/appointments", label: "My Appointments", icon: "📅" },
+  { to: "/", label: "Chat", short: "Chat", icon: "💬", end: true },
+  { to: "/check-in", label: "Self check-ins", short: "Check-in", icon: "📋" },
+  { to: "/medicines", label: "Medicine guide", short: "Medicines", icon: "💊" },
+  { to: "/doctors", label: "Find a Doctor", short: "Doctors", icon: "🩺" },
+  { to: "/appointments", label: "My Appointments", short: "Appointments", icon: "📅" },
 ];
 
 export default function Layout() {
@@ -27,7 +31,7 @@ export default function Layout() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2 sm:mx-6 sm:mt-4 sm:px-4 sm:py-2.5"
+        className="glass depth-shadow relative z-20 mx-2 mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl py-2 pl-3 pr-14 sm:mx-6 sm:mt-4 sm:py-2.5 sm:pl-4 sm:pr-16 xl:pr-4"
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <img
@@ -35,11 +39,14 @@ export default function Layout() {
             alt="Tulasi Health Care"
             className="h-8 w-8 rounded-xl object-cover shadow-sm shadow-blue-900/10 sm:h-11 sm:w-11"
           />
-          <div className="leading-tight">
+          {/* Logo only on the narrowest phones (under 360px), where five nav
+              icons and the help button leave no room for the name. */}
+          <div className="hidden leading-tight min-[360px]:block">
             <div className="text-sm font-bold tracking-tight text-blue-900 sm:text-base">
               Tulasi
             </div>
-            <div className="text-[9px] font-medium uppercase tracking-wider text-blue-600/80 sm:text-[11px]">
+            {/* Hidden on phones so the bar stays one row with the help button. */}
+            <div className="hidden text-[9px] font-medium uppercase tracking-wider text-blue-600/80 sm:block sm:text-[11px]">
               A Tulasi Health Care Initiative
             </div>
           </div>
@@ -51,14 +58,17 @@ export default function Layout() {
               key={link.to}
               to={link.to}
               end={link.end}
+              // Icon-only below lg: the label must still reach screen readers.
+              aria-label={link.label}
+              title={link.label}
               className={({ isActive }) =>
-                `flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors sm:px-3.5 sm:text-sm ${
+                `flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3.5 sm:text-sm ${
                   isActive ? "bg-blue-700 text-white" : "text-blue-700 hover:bg-blue-50"
                 }`
               }
             >
               <span aria-hidden="true">{link.icon}</span>
-              <span className="hidden sm:inline">{link.label}</span>
+              <span className="hidden lg:inline">{link.short}</span>
             </NavLink>
           ))}
         </nav>

@@ -1,9 +1,16 @@
 // Crisis hotline directories by region. Extend this map to add more
 // deployment countries. Keep numbers current — verify periodically.
 export const CRISIS_RESOURCES = {
+  // Tulasi first, but never alone: a clinic line can go unanswered at 3 a.m.
+  // and someone in danger needs a number that always picks up. Tele-MANAS is
+  // the government's free 24/7 mental-health helpline (also 1-800-891-4416).
   IN: {
     label: "India",
-    lines: [{ name: "Tulasi Health Care", phone: "8800000255", type: "call" }],
+    lines: [
+      { name: "Tulasi Health Care", phone: "8800000255", type: "call" },
+      { name: "Tele-MANAS (free, 24/7)", phone: "14416", type: "call" },
+      { name: "Emergency services", phone: "112", type: "call" },
+    ],
   },
   US: {
     label: "United States",

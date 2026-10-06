@@ -6,10 +6,12 @@ import {
   getDoctorsForSpecialties,
   getGeneralistDoctor,
   buildDoctorContextNote,
-  wantsDoctorHelp,
+  doctorHelpReason,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
-import { greetingFollowUpNote } from "../lib/conversationCues.js";
+import { greetingFollowUpNote, romanScriptNote, offScopeNote } from "../lib/conversationCues.js";
+import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
+import { findToolLinks } from "../lib/toolLinks.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
@@ -19,6 +21,18 @@ const router = Router();
 export const MAX_MESSAGE_CHARS = 2000;
 
 const RECENT_BOOKING_MS = 30 * 60 * 1000;
+
+// Exchanges between doctor suggestions prompted by distress alone.
+const CONCERN_CARD_GAP = 4;
+
+// Extra rules when the chat runs inside the public website widget.
+const WEBSITE_NOTE = [
+  "You are running in the chat widget on www.tulasihealthcare.com.",
+  "Never ask for, or repeat back, the person's name, phone number, age, address, or medical history. If they share them, don't store or restate them.",
+  "For appointments, tell them to use the Book Appointment button (the booking form at /book-appointment/). Don't try to book in chat.",
+  "Never diagnose, and never suggest or comment on medicines, doses, or stopping medication: say a psychiatrist should advise on that.",
+  "Only state facts about Tulasi Healthcare's doctors, services and locations that you have been given; if you don't know, say so and offer the phone number +91 8800000255.",
+].join(" ");
 
 // One in-flight model request per session: if a new message arrives before
 // the previous reply finished streaming, abort the stale one instead of
@@ -96,29 +110,39 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
         // Verified patient records: shown now, but not saved on the device.
         ...(det.sensitive && { sensitive: true }),
         ...(det.quickReplies?.length && { quickReplies: det.quickReplies }),
+        // Website widget: which secure page to offer ("book" | "portal").
+        ...(det.action && { action: det.action }),
       });
       return finish();
     }
 
-    // Best-effort doctor recommendation — gated on wantsDoctorHelp: merely
-    // naming a feeling ("I feel anxious") shouldn't trigger a referral; only
-    // explicit help-seeking or real distress/severity should. That gate looks
-    // at the current message only (the concern has to be happening now), but
-    // which specialty it matches is looked up across the person's recent
-    // messages too — someone saying "I don't know what to do anymore" without
-    // repeating "anxiety" should still surface an anxiety specialist if
-    // that's what they named a couple turns earlier. (Only their own words
-    // count: the bot's replies mention conditions too, and private booking
-    // turns are full of doctor names.) Deliberately NOT deduped by specialty
-    // across the session: if someone explicitly asks again later ("best
-    // doctor for ocd"), they get the cards again too — suppressing a repeat
-    // ask read as broken, not considerate.
-    const recentContext = session.history
+    // Best-effort doctor recommendation, gated on doctorHelpReason: merely
+    // naming a feeling ("I feel anxious") or having one bad day ("I had a
+    // really hard day") shouldn't trigger a referral; only an explicit ask or
+    // sustained distress should. Which specialty it matches is looked up
+    // across the person's recent messages too — someone saying "I don't know
+    // what to do anymore" without repeating "anxiety" should still surface an
+    // anxiety specialist if that's what they named a couple turns earlier.
+    // (Only their own words count: the bot's replies mention conditions too,
+    // and private booking turns are full of doctor names.) An explicit ask is
+    // never deduped: if someone asks again later ("best doctor for ocd"),
+    // suppressing it read as broken. Distress alone is different: suggesting
+    // a doctor on every hard message turns a conversation into a referral
+    // loop, so after one such suggestion it waits a few exchanges.
+    const recentUserTexts = session.history
       .slice(-8)
       .filter((turn) => turn.role === "user" && !turn.private)
-      .map((turn) => turn.text)
-      .join(" ");
-    const wantsHelp = wantsDoctorHelp(message);
+      .map((turn) => turn.text);
+    const recentContext = recentUserTexts.join(" ");
+    // Counted here rather than from history.length, which stops growing once
+    // the stored history hits its cap.
+    session.conversationTurns = (session.conversationTurns || 0) + 1;
+    const helpReason = doctorHelpReason(message, recentUserTexts);
+    const concernCooldown =
+      helpReason === "concern" &&
+      session.lastConcernCardsAt != null &&
+      session.conversationTurns - session.lastConcernCardsAt < CONCERN_CARD_GAP;
+    const wantsHelp = helpReason !== null && !concernCooldown;
     const matchedTags = wantsHelp ? matchSpecialties(`${recentContext} ${message}`) : [];
     let matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
     // Someone is clearly asking for help, but the concern named (e.g.
@@ -130,7 +154,17 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     if (wantsHelp && !matchedDoctors.length && !justBooked) {
       matchedDoctors = getGeneralistDoctor();
     }
-    const extraContext = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
+    const doctorNote = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
+    // Practical questions (fees, rooms, location, admission, ambulance) get
+    // the front desk's verified answers. Without them, the model would either
+    // refuse or guess a price.
+    const previousUserText = [...session.history].reverse().find((turn) => turn.role === "user" && !turn.private)?.text;
+    const clinicNote = buildClinicFactsNote(findClinicTopics(message, previousUserText));
+    // Medicine guide / self check-in links. Not on the website widget, which
+    // has no such pages.
+    const tools = session.channel === "website" ? { links: [] } : findToolLinks(message);
+    const extraContext =
+      [session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note].filter(Boolean).join("\n\n") || undefined;
 
     const result = await streamReply({
       history: session.history,
@@ -139,7 +173,11 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       abortSignal: controller.signal,
       extraContext,
       // "sup" mid-conversation: keep the thread instead of starting over.
-      turnNote: greetingFollowUpNote(session.history, message),
+      // Hinglish in, Hinglish (not Devanagari) out.
+      // Code/homework requests get a reminder to decline.
+      turnNote:
+        [greetingFollowUpNote(session.history, message), romanScriptNote(message), offScopeNote(message)].filter(Boolean).join("\n\n") ||
+        undefined,
     });
 
     if (result.aborted) {
@@ -163,8 +201,10 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       // can resolve against whoever was actually just shown, instead of
       // requiring a name the booking flow has no way to already know.
       session.lastRecommendedDoctors = matchedDoctors;
+      if (helpReason === "concern") session.lastConcernCardsAt = session.conversationTurns;
       send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
     }
+    if (tools.links.length) send({ links: tools.links });
     finish();
   } catch (err) {
     // Headers are already sent, so the error middleware can't answer this

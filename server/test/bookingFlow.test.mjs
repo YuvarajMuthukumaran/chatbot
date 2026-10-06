@@ -307,3 +307,18 @@ test("phone lookups are rate limited per client", async () => {
   for (let i = 0; i < 16; i++) result = await converse({}, ["show my bookings for 9876543210"], ctx);
   assert.match(result.reply, /only look up a few phone numbers/);
 });
+
+test("a flow that keeps re-asking the same question lets the person go", async () => {
+  const session = {};
+  // Answering a different question than the one asked (the date).
+  const result = await converse(session, ["book an appointment with dr pooja sharma", "Meena", "9876543210", "purple"]);
+  assert.match(result.reply, /so you're not stuck/);
+  assert.equal(session.booking?.flow ?? null, null);
+});
+
+test("'morning' at the time step narrows the list to morning slots", async () => {
+  const session = {};
+  const result = await converse(session, ["book an appointment with dr pooja sharma", "tomorrow", "morning"]);
+  assert.match(result.reply, /^Morning times/);
+  assert.ok(result.quickReplies.every((q) => q === "Never mind" || /AM|12:\d\d PM/.test(q)), result.quickReplies.join());
+});

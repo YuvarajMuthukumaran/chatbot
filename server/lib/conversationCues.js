@@ -5,6 +5,47 @@
 const GREETING_ONLY =
   /^\s*(?:hi+|hey+|hello+|hel+o+|yo+|sup+|wa+s+u+p+|what'?s\s*up|whats\s*up|heya|hiya|namaste|vanakkam|namaskaram)(?:\s+(?:there|again|tulasi))?\s*[!.?]*\s*$/i;
 
+// Everyday words that mark a message as Hindi, Tamil, or Telugu typed in
+// Roman letters ("mere bhai ko admit karna hai"). None is a common English
+// word, so an English message won't trip it.
+const ROMANIZED_INDIC =
+  /\b(?:hai|hain|kya|kyu|kyun|nahi|nahin|mera|mere|meri|mujhe|humko|hume|kitna|kitne|kaise|kaisa|karna|karu|karun|lagega|chahiye|bhai|behen|papa|aap|aapka|tum|ko|ka|ki|ke|enna|ennachu|epdi|eppadi|irukku|naan|enaku|enakku|romba|evvalavu|evlo|eppo|ela|enti|enta|entha|ekkada|nenu|naaku|naku|undi|untundi|unnaru|ledu|cheppu|cheppandi|chala|kavali)\b/i;
+const NATIVE_INDIC_SCRIPT = /[ऀ-ॿ஀-௿ఀ-౿]/;
+
+/**
+ * Models tend to answer Hinglish in Devanagari, which many people who type
+ * in Roman letters read slowly or not at all. When the message is a regional
+ * language in Roman letters, this returns a note asking for Roman letters
+ * back; otherwise null.
+ * @param {string} message
+ */
+export function romanScriptNote(message) {
+  if (NATIVE_INDIC_SCRIPT.test(message)) return null;
+  const words = message.match(/\b[a-z]+\b/gi) || [];
+  const hits = words.filter((w) => ROMANIZED_INDIC.test(w)).length;
+  // Two marker words, so one stray "ka" or "papa" in English doesn't count.
+  if (hits < 2) return null;
+  return "The person is writing Hindi, Tamil, or Telugu in Roman (English) letters. Reply in that same language, also in Roman letters (Hinglish, Tanglish, or Tenglish), not in English and not in Devanagari, Tamil, or Telugu script.";
+}
+
+// "write me a python script", "do my homework", "solve this equation".
+// The smaller fallback models sometimes just comply with these despite the
+// system prompt, so the reminder goes right next to the message.
+// Anchored to a direct request ("can you write…", "write me…"), so venting
+// about it ("I can't do my homework, I'm so stressed") never matches.
+const OFF_SCOPE_REQUEST =
+  /^\s*(?:hey,?\s+|hi,?\s+)?(?:(?:can|could|will|would) you\s+|please\s+|pls\s+)?(?:write|create|generate|give me|make|fix|debug|solve|do)\b[^.?!]{0,40}\b(?:code|script|program|function|app|website|essay|homework|assignment|equation|sql query|regex)\b/i;
+
+/**
+ * A reminder to decline, when the message asks for code, homework, and the
+ * like; otherwise null.
+ * @param {string} message
+ */
+export function offScopeNote(message) {
+  if (!OFF_SCOPE_REQUEST.test(message)) return null;
+  return "This message looks like a request for something outside your scope (code, homework, or similar). Follow the hard scope rule: don't do it, decline warmly in one sentence, and offer what you can help with instead. If they're really venting about the task, respond to that feeling instead.";
+}
+
 /**
  * A greeting sent mid-conversation reads to the model like the start of a
  * new chat, and it would reply "Hey there! How's your day going?" as if it

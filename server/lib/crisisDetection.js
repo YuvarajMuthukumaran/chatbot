@@ -48,9 +48,15 @@ const CRISIS_PATTERNS = {
     // Devanagari script
     hindiNative("खुदकुशी|खुद\\s*को\\s*(मार|ख़त्म|नुकसान)|मरना\\s*चाहता|मरना\\s*चाहती|जीना\\s*नहीं\\s*चाहता|जीने\\s*का\\s*मन\\s*नहीं|ज़िंदगी\\s*ख़त्म|जान\\s*देना\\s*चाहता"),
     hindiNative("मर\\s*जाना\\s*(चाहता|चाहती|है)|मुझे\\s*मरना\\s*है|जीना\\s*नहीं\\s*चाहती|जीने\\s*की\\s*इच्छा\\s*नहीं|ज़िंदा\\s*नहीं\\s*रहना|जान\\s*देना\\s*चाहती"),
+    // "I feel like dying", "should I just die", "no point in living".
+    hindiNative("मरने\\s*का\\s*(मन|दिल)|मर\\s*जाऊं|मर\\s*जाऊँ|जीने\\s*का\\s*कोई\\s*(मतलब|फायदा|फ़ायदा)\\s*नहीं|खुद\\s*को\\s*खत्म\\s*कर"),
     // Romanized (Hinglish)
     /\b(khudkushi|khud\s*ko\s*(mar|khatam|nuksan)|marna\s*chahta|marna\s*chahti|jeena\s*nahi\s*chahta|jeene\s*ka\s*man\s*nahi|zindagi\s*khatam|jaan\s*dena\s*chahta)\b/i,
     /\b(khud\s*k?hushi|khud\s*ko\s*(maar|khatm|khtm|nuksaan)|mar\s*ja+na\s*(chahta|chahti|hai)|mujhe\s*marna\s*hai|j(ee|i)n(a|e)\s*nahi?n?\s*chaht(a|i)|j(ee|i)ne\s*ka\s*mann?\s*nahi?n?|j(ee|i)ne\s*ki\s*(ichh?c?ha|iccha)\s*nahi?n?|zinda\s*nahi\s*rehna|zindagi\s*khatm|jaan\s*dena\s*chahti|suicide\s*kar)\b/i,
+    // "marne ka mann kar raha hai" (I feel like dying), "mar jaun?" (should I
+    // just die), "jeene ka koi matlab nahi" (no point living). Not "mar
+    // jaunga" (as in "I'll die laughing"): the \b stops "jaun" there.
+    /\b(marne\s*ka\s*(mann?|dil)\s*(kar|ho|karta)|mar\s*ja(u|un|oon|aun)n?\b|mar\s*jana\s*chahiye|j(ee|i)ne\s*ka\s*koi\s*(matlab|fayda|faida)\s*nahi?n?|khud\s*ko\s*khatam\s*kar)/i,
   ],
   ta: [
     // Tamil script

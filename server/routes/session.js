@@ -18,8 +18,8 @@ router.get("/crisis-resources", (req, res) => {
 // still see but the server lost — e.g. after a restart or the host spinning
 // down an idle instance. See sessionStore.createSession for what's accepted.
 router.post("/session", limitByIp(limiters.session), (req, res) => {
-  const { name, mood, history } = req.body || {};
-  const id = createSession({ history });
+  const { name, mood, history, channel } = req.body || {};
+  const id = createSession({ history, channel });
   if (name || mood != null) {
     setProfile(id, { name, mood });
   }

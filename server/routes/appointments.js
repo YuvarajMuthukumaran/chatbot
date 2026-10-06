@@ -4,6 +4,7 @@ import { checkBookableDate, BOOKING_WINDOW_DAYS } from "../lib/slots.js";
 import { normalizePhone, cleanPersonName } from "../lib/patientDetails.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
+import { sendBookingConfirmation } from "../lib/notify.js";
 import {
   getDoctorById,
   getAvailableSlots,
@@ -97,6 +98,8 @@ router.post(
         time,
       });
       res.status(201).json({ ok: true, appointment: publicView(appointment) });
+      // SMS / WhatsApp confirmation: after responding, and never fatal.
+      sendBookingConfirmation({ phone, doctorName: doctor.name, date, time }).catch(() => {});
     } catch (err) {
       if (err?.code === 11000) {
         return res.status(409).json({ error: "That slot was just booked by someone else. Please pick another." });

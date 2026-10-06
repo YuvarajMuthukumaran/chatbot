@@ -89,6 +89,19 @@ test("Hindi — romanized (Hinglish)", () => {
   ]);
 });
 
+test("Hindi — 'I feel like dying' phrasings found while testing the live bot", () => {
+  assertDetects("hi", [
+    "mujhe marne ka mann kar raha hai",
+    "marne ka man karta hai",
+    "kya main mar jaun?",
+    "jeene ka koi matlab nahi hai",
+    "मुझे मरने का मन कर रहा है",
+    "जीने का कोई मतलब नहीं",
+  ]);
+  // Everyday hyperbole stays out.
+  assert.equal(detectCrisis("hasi se mar jaunga yaar"), null);
+});
+
 test("Tamil — native script and romanized", () => {
   assertDetects("ta", [
     "தற்கொலை பண்ணிக்கலாம்னு தோணுது", // native script with a decomposable vowel sign (கொ)

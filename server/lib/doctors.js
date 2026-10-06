@@ -71,7 +71,10 @@ const INTENT_PATTERNS = {
   ],
   addiction: [
     /\balcoholism\b|\bde-?addiction\b|\baddicted\b|\baddiction\b|\bsubstance abuse\b/i,
-    /नशा|लत|शराबखोरी/, // Hindi
+    // How families actually describe it on the phone: "he drinks every day",
+    // "daru ki aadat", "betting addiction".
+    /\balcohol(?:ic)?\b|\bdrinks? (?:a lot|too much|heavily|daily|every day)\b|\bdrinking (?:problem|habit|too much|heavily|every day)\b|\b(?:daru|sharab|smack|ganja)\b|\bdrugs\b|\b(?:gambling|betting)\b/i,
+    /नशा|लत|शराब|दारू/, // Hindi
     /போதை|அடிமை/, // Tamil
     /మత్తు|వ్యసనం/, // Telugu
   ],
@@ -185,19 +188,36 @@ export function matchSpecialties(text) {
 // into Hindi/Tamil/Telugu sentences as-is that the English pattern already
 // catches most romanized requests — these add the native-script forms for
 // when someone types in their own script instead.
+// Asking for treatment or admission (usually for a relative: "admission for
+// my father", "papa ka ilaaj") is as explicit an ask as naming a doctor.
 const HELP_SEEKING_PATTERNS = [
-  /\b(doctors?|docs?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?)\b/i,
-  /डॉक्टर|मनोचिकित्सक|मनोवैज्ञानिक|विशेषज्ञ|काउंसलर/, // Hindi
-  /மருத்துவர்|நிபுணர்|ஆலோசகர்/, // Tamil
-  /డాక్టర్|వైద్యుడు|నిపుణుడు|కౌన్సెలర్/, // Telugu
+  /\b(doctors?|docs?|psychiatrists?|psychologists?|therapists?|specialists?|counsell?ors?|professional help|see someone|talk to someone|book(?:ing)?|appointments?|treatment|admission|admit|rehab|de-?addiction|ilaa?j|bharti)\b/i,
+  /डॉक्टर|मनोचिकित्सक|मनोवैज्ञानिक|विशेषज्ञ|काउंसलर|इलाज|भर्ती/, // Hindi
+  /மருத்துவர்|நிபுணர்|ஆலோசகர்|சிகிச்சை/, // Tamil
+  /డాక్టర్|వైద్యుడు|నిపుణుడు|కౌన్సెలర్|చికిత్స/, // Telugu
 ];
 
-const CONCERN_PATTERNS = [
-  /\bcan'?t (?:take|handle|cope|stop|sleep|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do (?:anymore)?|really (?:struggling|bad|hard)|\bscares? me\b|\bi'?m worried\b/i,
-  /बर्दाश्त नहीं|हमेशा|हर समय|लगातार|समझ नहीं आ रहा|क्या करूं|बहुत बुरा|अकेला महसूस/, // Hindi
-  /தாங்க முடியல|எப்போதும்|தொடர்ந்து|தெரியல|மிகவும் மோசமா|தனியா உணர்/, // Tamil
-  /భరించలేక|ఎప్పుడూ|నిరంతరం|తెలియడం లేదు|చాలా చెడ్డగా|ఒంటరిగా అనిపిస్తుంది/, // Telugu
+// Something ongoing, worsening, or past coping. Enough on its own.
+const SUSTAINED_CONCERN_PATTERNS = [
+  /\bcan'?t (?:take|handle|cope|stop|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do anymore/i,
+  /बर्दाश्त नहीं|हमेशा|हर समय|लगातार/, // Hindi
+  /தாங்க முடியல|எப்போதும்|தொடர்ந்து/, // Tamil
+  /భరించలేక|ఎప్పుడూ|నిరంతరం/, // Telugu
 ];
+
+// Intensity without duration: "I had a really hard day", "I'm so
+// exhausted", "I'm worried". Anyone can have a day like that, and answering
+// it with a doctor card tells them they weren't heard. These only count once
+// they keep coming up: when an earlier message showed distress too.
+const MOMENTARY_CONCERN_PATTERNS = [
+  /\breally (?:struggling|bad|hard)\b|\bso (?:scared|overwhelmed|exhausted|tired of this)\b|\bscares? me\b|\bi'?m worried\b|\bcan'?t sleep\b|don'?t know what to do\b/i,
+  /समझ नहीं आ रहा|क्या करूं|बहुत बुरा|अकेला महसूस/, // Hindi
+  /தெரியல|மிகவும் மோசமா|தனியா உணர்/, // Tamil
+  /తెలియడం లేదు|చాలా చెడ్డగా|ఒంటరిగా అనిపిస్తుంది/, // Telugu
+];
+
+const showsDistress = (text) =>
+  [...SUSTAINED_CONCERN_PATTERNS, ...MOMENTARY_CONCERN_PATTERNS].some((p) => p.test(text));
 
 // "why do you always suggest grounding" trips CONCERN_PATTERNS' chronicity
 // check ("always") even though it's commentary on the bot's own behavior,
@@ -205,11 +225,30 @@ const CONCERN_PATTERNS = [
 // only the fuzzy concern-word fallback gets suppressed by it.
 const BOT_META_COMMENTARY = /\b(?:why (?:do|does|would|are) you|do you (?:always|only|ever)|you always (?:suggest|say|recommend|tell|give))\b/i;
 
-export function wantsDoctorHelp(text) {
-  if (!text) return false;
-  if (HELP_SEEKING_PATTERNS.some((p) => p.test(text))) return true;
-  if (BOT_META_COMMENTARY.test(text)) return false;
-  return CONCERN_PATTERNS.some((p) => p.test(text));
+/**
+ * Why (if at all) this message calls for suggesting a specialist:
+ * "explicit" when they asked for help or treatment, "concern" when the
+ * distress is sustained (named as ongoing, or still there from earlier
+ * messages), otherwise null.
+ * @param {string} text
+ * @param {string[]} [earlierUserTexts] - the person's previous messages
+ * @returns {"explicit" | "concern" | null}
+ */
+// "my doctor started me on sertraline" mentions a doctor they already have;
+// it isn't asking for one.
+const OWN_CLINICIAN = /\b(?:my|our|his|her|their|the)\s+(?:doctors?|docs?|psychiatrists?|psychologists?|therapists?|counsell?ors?)\b/gi;
+
+export function doctorHelpReason(text, earlierUserTexts = []) {
+  if (!text) return null;
+  if (HELP_SEEKING_PATTERNS.some((p) => p.test(text.replace(OWN_CLINICIAN, "")))) return "explicit";
+  if (BOT_META_COMMENTARY.test(text)) return null;
+  if (SUSTAINED_CONCERN_PATTERNS.some((p) => p.test(text))) return "concern";
+  if (MOMENTARY_CONCERN_PATTERNS.some((p) => p.test(text)) && earlierUserTexts.some(showsDistress)) return "concern";
+  return null;
+}
+
+export function wantsDoctorHelp(text, earlierUserTexts) {
+  return doctorHelpReason(text, earlierUserTexts) !== null;
 }
 
 export function getDoctorsForSpecialties(tags, limit = 2) {

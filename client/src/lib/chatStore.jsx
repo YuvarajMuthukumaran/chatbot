@@ -147,6 +147,7 @@ export function ChatProvider({ children }) {
           text: fullText,
           crisis: doneMeta?.crisis,
           doctors: doneMeta?.doctors,
+          links: doneMeta?.links,
           quickReplies: doneMeta?.quickReplies,
           functional: doneMeta?.functional,
           sensitive: doneMeta?.sensitive,
@@ -203,7 +204,14 @@ export function ChatProvider({ children }) {
       sessionId: activeSessionId,
       message: text,
       onChunk: (chunk, event) => {
-        fullText += chunk;
+        if (event?.error) {
+          // The reply failed partway: show the error on its own instead of
+          // tacking it onto half a sentence.
+          fullText = chunk;
+          revealedLength = 0;
+        } else {
+          fullText += chunk;
+        }
         if (event?.crisis) liveCrisis = true;
         if (event?.crisis || event?.functional) revealAll = true;
         if (revealAll) {

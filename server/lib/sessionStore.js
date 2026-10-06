@@ -43,7 +43,9 @@ export function sanitizeHistory(history) {
  *   session, and nothing security-relevant (like HMS verification) is
  *   restored from it.
  */
-export function createSession({ history } = {}) {
+/** @param {{history?: object[], channel?: "website"}} [options] - `channel: "website"`
+ * marks a session started from the public website widget (see turnRouter.js). */
+export function createSession({ history, channel } = {}) {
   while (sessions.size >= MAX_SESSIONS) {
     sessions.delete(sessions.keys().next().value);
   }
@@ -52,6 +54,7 @@ export function createSession({ history } = {}) {
   sessions.set(id, {
     history: sanitizeHistory(history),
     profile: {},
+    channel: channel === "website" ? "website" : undefined,
     createdAt: now,
     lastActiveAt: now,
   });
