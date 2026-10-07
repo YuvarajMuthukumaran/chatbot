@@ -351,9 +351,25 @@ function dateChips(now = new Date()) {
   return [...chips, NEVER_MIND];
 }
 
+// Days that actually have an open slot with this doctor, looked up over the
+// next two weeks, so a button never leads to "no open times". Falls back to
+// plain upcoming days if the lookup fails.
+const CHIP_LOOKAHEAD_DAYS = 14;
+async function openDateChips(doctorId) {
+  const today = clinicToday();
+  const days = Array.from({ length: Math.min(CHIP_LOOKAHEAD_DAYS, BOOKING_WINDOW_DAYS) }, (_, i) => addDays(today, i));
+  const slots = await Promise.all(days.map((d) => getAvailableSlots(doctorId, d)));
+  if (slots.some((s) => s === null)) return dateChips();
+  const chips = days
+    .map((d, i) => (slots[i].length ? (i === 0 ? "Today" : i === 1 ? "Tomorrow" : formatDate(d)) : null))
+    .filter(Boolean)
+    .slice(0, 5);
+  return [...chips, NEVER_MIND];
+}
+
 const ASK_DATE = 'What date would you like to come in? You can say things like "tomorrow", "Friday", or "5 Oct".';
 
-function selectDoctor(state, doctor, intro) {
+async function selectDoctor(state, doctor, intro) {
   state.selectedDoctor = doctor;
   state.candidates = [];
   if (state.pendingDate) {
@@ -362,7 +378,7 @@ function selectDoctor(state, doctor, intro) {
     return offerSlots(state, String(doctor._id), date, { intro });
   }
   state.stage = "awaiting_date";
-  return say(`${intro} ${ASK_DATE}`, dateChips());
+  return say(`${intro} ${ASK_DATE}`, await openDateChips(String(doctor._id)));
 }
 
 function formatSlotList(slots) {
@@ -380,7 +396,7 @@ async function offerSlots(state, doctorId, date, { intro } = {}) {
   if (!slots.length) {
     state.stage = "awaiting_date";
     const why = date === clinicToday() ? " (the rest of today is either booked or too soon)" : "";
-    return say(`${prefix}There are no open times on ${formatDate(date)}${why}. Could you pick another day?`, dateChips());
+    return say(`${prefix}There are no open times on ${formatDate(date)}${why}. Could you pick another day?`, await openDateChips(doctorId));
   }
   state.date = date;
   state.availableSlots = slots;
