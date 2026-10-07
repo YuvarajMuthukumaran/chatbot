@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { getDb } from "../lib/db.js";
 import { checkBookableDate, BOOKING_WINDOW_DAYS } from "../lib/slots.js";
-import { normalizePhone, cleanPersonName } from "../lib/patientDetails.js";
+import { normalizeEmail, normalizePhone, cleanPersonName } from "../lib/patientDetails.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
-import { sendBookingConfirmation } from "../lib/notify.js";
+import { sendBookingConfirmation, sendBookingConfirmationEmail } from "../lib/notify.js";
+import { createAuthSession, verifyOtp, SESSION_TTL_MS } from "../lib/authStore.js";
+import { cookieHeader } from "./auth.js";
 import {
   getDoctorById,
   getAvailableSlots,
@@ -66,21 +68,22 @@ router.get(
   })
 );
 
-// POST /api/appointments — { doctorId, patientName, patientPhone, date, time }
-// (doctorName is still accepted for older clients, but the stored name
-// always comes from the doctor record itself.)
+// POST /api/appointments — website: { doctorId, patientName, patientEmail, code, date, time } where `code` is the
+// 6-digit code e-mailed by POST /api/auth/otp/request. The chatbot still books with { patientPhone } instead.
 router.post(
   "/appointments",
   limitByIp(limiters.booking),
   asyncHandler(async (req, res) => {
     if (!dbOrError(res)) return;
 
-    const { doctorId, patientName, patientPhone, date, time } = req.body || {};
-    if (!doctorId || !patientName || !patientPhone || !date || !time) {
-      return res.status(400).json({ error: "doctorId, patientName, patientPhone, date, and time are all required" });
+    const { doctorId, patientName, patientPhone, patientEmail, code, date, time } = req.body || {};
+    if (!doctorId || !patientName || !(patientEmail || patientPhone) || !date || !time) {
+      return res.status(400).json({ error: "doctorId, patientName, patientEmail, date, and time are all required" });
     }
-    const phone = normalizePhone(String(patientPhone));
-    if (!phone) return res.status(400).json({ error: "patientPhone must be a 10-digit mobile number" });
+    const email = patientEmail ? normalizeEmail(patientEmail) : null;
+    const phone = !email && patientPhone ? normalizePhone(String(patientPhone)) : null;
+    if (patientEmail && !email) return res.status(400).json({ error: "Please enter a valid e-mail address." });
+    if (!email && !phone) return res.status(400).json({ error: "patientPhone must be a 10-digit mobile number" });
     const name = cleanPersonName(String(patientName));
     if (!name) return res.status(400).json({ error: "Please enter the patient's full name." });
 
@@ -88,18 +91,35 @@ router.post(
     if (!doctor) return res.status(404).json({ error: "Doctor not found" });
     if (!(await ensureSlotOpen(res, String(doctor._id), date, time))) return;
 
+    // An e-mail address must be proven with the code we sent to it before a slot is held for it.
+    if (email) {
+      const digits = String(code ?? "").replace(/\D/g, "");
+      if (digits.length !== 6) return res.status(400).json({ error: "Enter the 6-digit code we e-mailed you." });
+      const result = await verifyOtp(`email:${email}`, digits);
+      if (result !== "ok") {
+        const msg = { expired: "That code has expired. Please request a new one.", locked: "Too many attempts. Please request a new code.", invalid: "That code isn't right. Please check and try again." }[result];
+        return res.status(401).json({ error: msg });
+      }
+    }
+
     try {
       const appointment = await bookAppointment({
         doctorId: String(doctor._id),
         doctorName: doctor.name,
         patientName: name,
-        patientPhone: phone,
+        ...(email ? { patientEmail: email } : { patientPhone: phone }),
         date,
         time,
       });
+      // Booking with a verified e-mail also signs the patient in, so "my appointments" works straight away.
+      if (email) {
+        const token = await createAuthSession(`email:${email}`);
+        res.setHeader("Set-Cookie", cookieHeader(encodeURIComponent(token), SESSION_TTL_MS));
+      }
       res.status(201).json({ ok: true, appointment: publicView(appointment) });
-      // SMS / WhatsApp confirmation: after responding, and never fatal.
-      sendBookingConfirmation({ phone, doctorName: doctor.name, date, time }).catch(() => {});
+      // Confirmation: after responding, and never fatal.
+      if (email) sendBookingConfirmationEmail({ email, patientName: name, doctorName: doctor.name, date, time }).catch(() => {});
+      else sendBookingConfirmation({ phone, doctorName: doctor.name, date, time }).catch(() => {});
     } catch (err) {
       if (err?.code === 11000) {
         return res.status(409).json({ error: "That slot was just booked by someone else. Please pick another." });

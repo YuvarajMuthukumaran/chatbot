@@ -120,3 +120,32 @@ test("crisis detection still comes first on the website channel", async () => {
   const [evt] = await chat(sessionId, "I want to kill myself");
   assert.equal(evt.crisis, true);
 });
+
+test("booking with an e-mailed code: wrong code refused, right code books, signs in and lists it", async () => {
+  const email = "Priya.Sharma@Example.com";
+  const date = addDays(clinicToday(), 2);
+  const { slots } = await (await fetch(`${base}/appointments/slots?doctorId=${doctorId}&date=${date}`)).json();
+  assert.ok(slots.length > 0, "the doctor has an open slot");
+  const book = (code, time = slots[0]) => fetch(`${base}/appointments`, json("POST", { doctorId, patientName: "Priya Sharma", patientEmail: email, code, date, time }));
+
+  assert.equal((await book(undefined)).status, 400); // no code
+  const { devCode } = await (await fetch(`${base}/auth/otp/request`, json("POST", { email }))).json();
+  assert.match(devCode, /^\d{6}$/);
+  assert.equal((await book(devCode === "000000" ? "111111" : "000000")).status, 401); // wrong code
+  const ok = await book(devCode);
+  assert.equal(ok.status, 201);
+  const cookie = cookieOf(ok);
+  assert.match(cookie, /^thc_session=/);
+
+  const mine = await (await fetch(`${base}/me/appointments`, { headers: { cookie } })).json();
+  assert.equal(mine.appointments.length, 1);
+  const me = await (await fetch(`${base}/auth/me`, { headers: { cookie } })).json();
+  assert.match(me.user.email, /@example\.com$/);
+  assert.ok(!JSON.stringify(me).includes("Priya"), "the e-mail is masked");
+  assert.equal((await book(devCode, slots[1])).status, 401); // a code works once
+});
+
+test("an invalid e-mail address is rejected", async () => {
+  const res = await fetch(`${base}/auth/otp/request`, json("POST", { email: "not-an-email" }));
+  assert.equal(res.status, 400);
+});

@@ -5,11 +5,11 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { createRateLimiter, limitByIp, TOO_MANY_REQUESTS } from "../lib/rateLimit.js";
-import { normalizePhone } from "../lib/patientDetails.js";
+import { normalizeEmail, normalizePhone } from "../lib/patientDetails.js";
 import { issueOtp, verifyOtp, createAuthSession, readAuthSession, revokeAuthSession, SESSION_TTL_MS } from "../lib/authStore.js";
-import { sendLoginCode } from "../lib/notify.js";
-import { lookupHash, maskPhone } from "../lib/secure.js";
-import { getAppointmentById, listAppointmentsByPhone, cancelAppointment } from "../lib/bookingData.js";
+import { sendLoginCode, sendLoginCodeEmail } from "../lib/notify.js";
+import { lookupHash, maskEmail, maskPhone } from "../lib/secure.js";
+import { getAppointmentById, listAppointmentsByEmail, listAppointmentsByPhone, cancelAppointment } from "../lib/bookingData.js";
 
 const router = Router();
 const MINUTE = 60_000;
@@ -22,7 +22,17 @@ const otpPerIp = createRateLimiter({ windowMs: 10 * MINUTE, max: 10 });
 const otpPerPhone = createRateLimiter({ windowMs: 10 * MINUTE, max: 3 });
 const verifyPerIp = createRateLimiter({ windowMs: 10 * MINUTE, max: 20 });
 
-function cookieHeader(value, maxAgeMs) {
+/** A visitor is identified by an e-mail address (stored as "email:<address>") or, for older sign-ins, a mobile number. */
+export const identityFrom = (body) => {
+  const email = body?.email ? normalizeEmail(body.email) : null;
+  if (email) return { id: `email:${email}`, email };
+  const phone = body?.phone ? normalizePhone(String(body.phone)) : null;
+  return phone ? { id: phone, phone } : null;
+};
+export const isEmailId = (id) => String(id).startsWith("email:");
+const describe = (id) => (isEmailId(id) ? { email: maskEmail(String(id).slice(6)) } : { phone: maskPhone(id) });
+
+export function cookieHeader(value, maxAgeMs) {
   const parts = [`${COOKIE}=${value}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${Math.floor(maxAgeMs / 1000)}`];
   if (process.env.COOKIE_SECURE !== "false" && (isProd || process.env.COOKIE_SECURE === "true")) parts.push("Secure");
   if (process.env.COOKIE_DOMAIN) parts.push(`Domain=${process.env.COOKIE_DOMAIN}`);
@@ -46,37 +56,43 @@ export const requirePatient = asyncHandler(async (req, res, next) => {
   next();
 });
 
-// POST /api/auth/otp/request  { phone }
+// POST /api/auth/otp/request  { email }  (a { phone } is still accepted)
 router.post(
   "/auth/otp/request",
   limitByIp(otpPerIp),
   asyncHandler(async (req, res) => {
-    const phone = normalizePhone(String(req.body?.phone ?? ""));
-    if (!phone) return res.status(400).json({ error: "Please enter a valid 10-digit mobile number." });
-    if (!otpPerPhone.consume(lookupHash(phone)).ok) return res.status(429).json({ error: TOO_MANY_REQUESTS });
-    const code = await issueOtp(phone);
-    await sendLoginCode(phone, code);
+    const who = identityFrom(req.body);
+    if (!who) return res.status(400).json({ error: req.body?.phone && !req.body?.email ? "Please enter a valid 10-digit mobile number." : "Please enter a valid e-mail address." });
+    if (!otpPerPhone.consume(lookupHash(who.id)).ok) return res.status(429).json({ error: TOO_MANY_REQUESTS });
+    const code = await issueOtp(who.id);
+    try {
+      if (who.email) await sendLoginCodeEmail(who.email, code);
+      else await sendLoginCode(who.phone, code);
+    } catch (err) {
+      console.error("Sending the verification code failed:", err?.message);
+      return res.status(502).json({ error: "We couldn't send the code just now. Please try again in a moment." });
+    }
     // OTP_DEV_ECHO lets the sandbox/demo show the code on screen. Never in production.
     res.json({ ok: true, ...(process.env.OTP_DEV_ECHO === "true" && !isProd ? { devCode: code } : {}) });
   })
 );
 
-// POST /api/auth/otp/verify  { phone, code }
+// POST /api/auth/otp/verify  { email, code }
 router.post(
   "/auth/otp/verify",
   limitByIp(verifyPerIp),
   asyncHandler(async (req, res) => {
-    const phone = normalizePhone(String(req.body?.phone ?? ""));
+    const who = identityFrom(req.body);
     const code = String(req.body?.code ?? "").replace(/\D/g, "");
-    if (!phone || code.length !== 6) return res.status(400).json({ error: "Enter the 6-digit code we sent you." });
-    const result = await verifyOtp(phone, code);
+    if (!who || code.length !== 6) return res.status(400).json({ error: "Enter the 6-digit code we sent you." });
+    const result = await verifyOtp(who.id, code);
     if (result !== "ok") {
       const msg = { expired: "That code has expired. Please request a new one.", locked: "Too many attempts. Please request a new code.", invalid: "That code isn't right. Please check and try again." }[result];
       return res.status(401).json({ error: msg });
     }
-    const token = await createAuthSession(phone);
+    const token = await createAuthSession(who.id);
     res.setHeader("Set-Cookie", cookieHeader(encodeURIComponent(token), SESSION_TTL_MS));
-    res.json({ ok: true, user: { phone: maskPhone(phone) } });
+    res.json({ ok: true, user: describe(who.id) });
   })
 );
 
@@ -84,7 +100,7 @@ router.post(
 router.get(
   "/auth/me",
   requirePatient,
-  (req, res) => res.json({ user: { phone: maskPhone(req.patient.phone) } })
+  (req, res) => res.json({ user: describe(req.patient.phone) })
 );
 
 // POST /api/auth/logout
@@ -104,7 +120,8 @@ router.get(
   "/me/appointments",
   requirePatient,
   asyncHandler(async (req, res) => {
-    const list = (await listAppointmentsByPhone(req.patient.phone, { includeCancelled: true })) ?? [];
+    const id = req.patient.phone;
+    const list = (isEmailId(id) ? await listAppointmentsByEmail(String(id).slice(6), { includeCancelled: true }) : await listAppointmentsByPhone(id, { includeCancelled: true })) ?? [];
     res.json({ appointments: list.map(publicView) });
   })
 );
@@ -115,7 +132,9 @@ router.patch(
   requirePatient,
   asyncHandler(async (req, res) => {
     const appt = await getAppointmentById(req.params.id).catch(() => null);
-    if (!appt || appt.patientPhone !== req.patient.phone) return res.status(404).json({ error: "Appointment not found." });
+    const id = req.patient.phone;
+    const mine = appt && (isEmailId(id) ? appt.patientEmail === String(id).slice(6) : appt.patientPhone === id);
+    if (!mine) return res.status(404).json({ error: "Appointment not found." });
     if (appt.status !== "booked") return res.status(409).json({ error: "This appointment is no longer active." });
     await cancelAppointment(req.params.id);
     res.json({ ok: true });

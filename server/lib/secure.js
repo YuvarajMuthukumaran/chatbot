@@ -52,3 +52,9 @@ export function safeEqualHex(a, b) {
 }
 
 export const maskPhone = (phone) => `******${String(phone).slice(-4)}`;
+
+/** "priya.sharma@gmail.com" -> "p***a@gmail.com" */
+export const maskEmail = (email) => {
+  const [user = "", domain = ""] = String(email).split("@");
+  return `${user.slice(0, 1)}${"*".repeat(Math.max(2, Math.min(user.length - 2, 5)))}${user.length > 1 ? user.slice(-1) : ""}@${domain}`;
+};

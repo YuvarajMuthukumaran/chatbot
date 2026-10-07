@@ -8,6 +8,8 @@
 //   WHATSAPP_PROVIDER=meta WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_BOOKING_TEMPLATE (approved template name)
 // Indian SMS needs DLT-registered templates, which is why MSG91 uses template IDs.
 
+import { sendMail } from "./mailer.js";
+
 const isProd = process.env.NODE_ENV === "production";
 const toE164 = (phone) => `+91${String(phone).replace(/\D/g, "").slice(-10)}`;
 
@@ -71,4 +73,32 @@ export async function sendBookingConfirmation({ phone, doctorName, date, time })
     process.env.WHATSAPP_BOOKING_TEMPLATE ? sendWhatsApp(phone, { template: process.env.WHATSAPP_BOOKING_TEMPLATE, params: [doctorName, date, time] }) : null,
   ]);
   for (const r of results) if (r.status === "rejected") console.error("Booking confirmation failed:", r.reason?.message);
+}
+
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const shell = (inner) => `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:auto;padding:24px;color:#17222c">${inner}<p style="margin-top:28px;font-size:12px;color:#6b7782">Tulasi Healthcare · ${esc(process.env.CLINIC_PHONE || "+91 8800000255")}</p></div>`;
+
+/** 6-digit login / booking verification code by e-mail. */
+export async function sendLoginCodeEmail(email, code) {
+  await sendMail({
+    to: email,
+    subject: `${code} is your Tulasi Healthcare verification code`,
+    text: `${code} is your Tulasi Healthcare verification code. It expires in 5 minutes. Do not share it with anyone.`,
+    html: shell(`<p style="font-size:15px">Your Tulasi Healthcare verification code is</p><p style="font-size:34px;letter-spacing:8px;font-weight:700;margin:8px 0">${esc(code)}</p><p style="font-size:13px;color:#4b5963">It expires in 5 minutes. Please do not share it with anyone.</p>`),
+  });
+}
+
+/** Best-effort: a failed e-mail never fails the booking itself. */
+export async function sendBookingConfirmationEmail({ email, patientName, doctorName, date, time }) {
+  try {
+    const when = `${date} at ${time}`;
+    await sendMail({
+      to: email,
+      subject: `Your appointment with ${doctorName} is confirmed`,
+      text: `Hello ${patientName}, your appointment with ${doctorName} on ${when} is confirmed. Tulasi Healthcare, ${process.env.CLINIC_PHONE || "+91 8800000255"}.`,
+      html: shell(`<p style="font-size:16px">Hello ${esc(patientName)},</p><p style="font-size:15px">Your appointment with <strong>${esc(doctorName)}</strong> is confirmed for <strong>${esc(when)}</strong>.</p><p style="font-size:13px;color:#4b5963">To change or cancel it, sign in to the patient portal on our website with this e-mail address.</p>`),
+    });
+  } catch (err) {
+    console.error("Booking confirmation e-mail failed:", err?.message);
+  }
 }

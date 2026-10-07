@@ -49,3 +49,12 @@ export function cleanPersonName(text) {
   if (name.length < 2 || !PERSON_NAME.test(name) || name.split(" ").length > 5 || NOT_A_NAME.test(name)) return null;
   return name;
 }
+
+/**
+ * A single e-mail address from what the visitor typed (lower-cased), or null.
+ * @returns {string|null}
+ */
+export function normalizeEmail(text) {
+  const s = String(text ?? "").trim().toLowerCase();
+  return s.length <= 120 && /^[^\s@<>()[\],;:"]+@[^\s@<>()[\],;:"]+\.[a-z]{2,}$/.test(s) ? s : null;
+}

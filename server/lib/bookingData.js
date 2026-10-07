@@ -74,19 +74,21 @@ export async function getAvailableSlots(doctorId, date) {
   return availableSlots(rows.map((r) => r.time), { date, doctorName: doctor?.name });
 }
 
-export async function bookAppointment({ doctorId, doctorName, patientName, patientPhone, date, time }) {
+export async function bookAppointment({ doctorId, doctorName, patientName, patientPhone, patientEmail, date, time }) {
   const db = getDb();
   if (!db) throw new Error("Database not connected");
 
-  await db
-    .collection("patients")
-    .updateOne(
-      { phone: patientPhone },
-      { $set: { name: patientName, phone: patientPhone, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
-      { upsert: true }
-    );
+  // Patients who booked on the website with an e-mail address have no phone number to key a patient record on.
+  if (patientPhone)
+    await db
+      .collection("patients")
+      .updateOne(
+        { phone: patientPhone },
+        { $set: { name: patientName, phone: patientPhone, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+        { upsert: true }
+      );
 
-  const appointment = { doctorId, doctorName, patientName, patientPhone, date, time, status: "booked", createdAt: new Date() };
+  const appointment = { doctorId, doctorName, patientName, ...(patientPhone ? { patientPhone } : {}), ...(patientEmail ? { patientEmail } : {}), date, time, status: "booked", createdAt: new Date() };
   const result = await db.collection("appointments").insertOne(appointment);
   return { ...appointment, _id: result.insertedId };
 }
@@ -99,6 +101,14 @@ export async function listAppointmentsByPhone(phone, { includeCancelled = false,
   const query = { patientPhone: String(phone) };
   if (!includeCancelled) query.status = "booked";
   if (upcomingOnly) query.date = { $gte: clinicToday() };
+  return db.collection("appointments").find(query).sort({ date: 1, time: 1 }).toArray();
+}
+
+export async function listAppointmentsByEmail(email, { includeCancelled = false } = {}) {
+  const db = getDb();
+  if (!db) return null;
+  const query = { patientEmail: String(email) };
+  if (!includeCancelled) query.status = "booked";
   return db.collection("appointments").find(query).sort({ date: 1, time: 1 }).toArray();
 }
 
