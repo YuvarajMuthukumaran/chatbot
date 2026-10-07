@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
 import TulasiMascot from "../components/TulasiMascot.jsx";
@@ -76,6 +77,22 @@ export default function Chat() {
     setInput("");
     await send(text);
   };
+
+  // "Book Appointment" on the Doctors page arrives here with the request to
+  // send ("Book an appointment with Dr. …"), once the session is ready.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const autoSend = location.state?.autoSend;
+  // Once per navigation: effects can run twice (React's development checks,
+  // or a re-render before the cleared state lands), and a second send would
+  // duplicate the message and cut off the first reply.
+  const autoSentFor = useRef(null);
+  useEffect(() => {
+    if (!autoSend || !sessionId || streaming || autoSentFor.current === location.key) return;
+    autoSentFor.current = location.key;
+    navigate(location.pathname, { replace: true, state: null });
+    send(autoSend);
+  }, [autoSend, sessionId, streaming, send, navigate, location.pathname, location.key]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

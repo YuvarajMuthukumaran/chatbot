@@ -37,6 +37,10 @@ export const limiters = {
   phoneLookup: createRateLimiter({ windowMs: 10 * MINUTE, max: 15 }),
   booking: createRateLimiter({ windowMs: 60 * MINUTE, max: 15 }),
   hmsVerify: createRateLimiter({ windowMs: 60 * MINUTE, max: 8 }),
+  // E-mailed verification codes from the chat: per client, and per address
+  // (so nobody can flood someone else's inbox).
+  emailCodePerIp: createRateLimiter({ windowMs: 10 * MINUTE, max: 10 }),
+  emailCodePerAddress: createRateLimiter({ windowMs: 10 * MINUTE, max: 3 }),
 };
 
 export const TOO_MANY_REQUESTS = "Too many requests — please wait a few minutes and try again.";

@@ -39,7 +39,7 @@ export const ASSESSMENTS = {
     tool: "OCI-4",
     specialty: "ocd",
     intro:
-      "Let's look into that together. I'll ask **6 quick questions** about common OCD experiences. Just tap an answer. It takes about a minute, and you can say **stop** at any time.",
+      "Let's check. **6 quick questions**, about a minute. Tap an answer, or say **stop** anytime.",
     prompt: "In the past month, how much has this bothered you?",
     questions: [
       { text: "I check things more often than necessary.", hint: "e.g. locks, switches, the gas", options: OCI },
@@ -99,7 +99,7 @@ export const ASSESSMENTS = {
     tool: "PHQ-9",
     specialty: "depression",
     intro:
-      "Let's check in on that properly. I'll ask **9 quick questions** about the last 2 weeks. Just tap an answer, and you can say **stop** at any time.",
+      "Let's check properly. **9 quick questions** about the last 2 weeks. Tap an answer, or say **stop** anytime.",
     prompt: "Over the last 2 weeks, how often have you been bothered by…",
     questions: [
       "Little interest or pleasure in doing things",
@@ -133,7 +133,7 @@ export const ASSESSMENTS = {
     title: "Anxiety screening",
     tool: "GAD-7",
     specialty: "anxiety",
-    intro: "Let's look at that together. I'll ask **7 quick questions** about the last 2 weeks. Just tap an answer, and you can say **stop** at any time.",
+    intro: "Let's check. **7 quick questions** about the last 2 weeks. Tap an answer, or say **stop** anytime.",
     prompt: "Over the last 2 weeks, how often have you been bothered by…",
     questions: [
       "Feeling nervous, anxious, or on edge",
@@ -162,7 +162,7 @@ export const ASSESSMENTS = {
     title: "ADHD screening",
     tool: "ASRS v1.1",
     specialty: "adhd",
-    intro: "Let's explore that. I'll ask **6 quick questions** about the last 6 months. Just tap an answer, and you can say **stop** at any time.",
+    intro: "Let's check. **6 quick questions** about the last 6 months. Tap an answer, or say **stop** anytime.",
     prompt: "Over the last 6 months…",
     questions: [
       "How often do you have trouble wrapping up the final details of a project, once the hard parts are done?",
@@ -190,7 +190,7 @@ export const ASSESSMENTS = {
     tool: "PC-PTSD-5",
     specialty: "ptsd",
     intro:
-      "Thank you for trusting me with that. I'll ask **a few short yes/no questions**. You don't need to describe what happened, and you can say **stop** at any time.",
+      "Thank you for trusting me with that. **A few yes/no questions**, and you don't need to say what happened. Say **stop** anytime.",
     questions: [
       {
         text: "Have you ever been through something especially frightening, horrible or traumatic?",
@@ -237,7 +237,7 @@ export const ASSESSMENTS = {
     title: "Alcohol use check",
     tool: "AUDIT-C",
     specialty: "addiction",
-    intro: "Let's take an honest look. I'll ask **3 quick questions**. One drink = a small peg (30 ml), a glass of wine, or a regular can of beer. You can say **stop** at any time.",
+    intro: "Let's take an honest look: **3 quick questions**. One drink = a small peg (30 ml), a glass of wine, or a can of beer.",
     questions: [
       { text: "How often do you have a drink containing alcohol?", options: opts(["Never", "Monthly or less", "2–4 times a month", "2–3 times a week", "4+ times a week"]) },
       { text: "How many drinks do you have on a typical day when you drink?", options: opts(["1–2", "3–4", "5–6", "7–9", "10 or more"]) },
@@ -262,7 +262,7 @@ export const ASSESSMENTS = {
     title: "Dizziness check",
     tool: "Symptom triage",
     specialty: "anxiety",
-    intro: "Sorry you're feeling that way. Let me ask a few quick questions to understand what might be going on. **Safety first:**",
+    intro: "Sorry you're feeling that way. A few quick questions, **safety first:**",
     questions: [
       {
         text: "Right now, along with the dizziness, do you have any of these?",

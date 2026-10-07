@@ -14,13 +14,15 @@ import { matchSpecialties, specialtyLabel, getGeneralistDoctor } from "./doctors
 import { checkBookableDate, BOOKING_WINDOW_DAYS, availableSlots as openSlotsFor } from "./slots.js";
 import { parseDate, parseTime, isDateWord } from "./dateParse.js";
 import { clinicToday, addDays, formatDate, formatTime, timeToMinutes } from "./clinicTime.js";
-import { normalizePhone, cleanPersonName, extractPatientDetails } from "./patientDetails.js";
+import { cleanPersonName, extractPatientDetails, normalizeEmail, maskEmail } from "./patientDetails.js";
+import { issueOtp, verifyOtp } from "./authStore.js";
+import { sendLoginCodeEmail, sendBookingConfirmationEmail } from "./notify.js";
 import { limiters } from "./rateLimit.js";
 import {
   searchDoctors,
   getAvailableSlots,
   bookAppointment,
-  listAppointmentsByPhone,
+  listAppointmentsByEmail,
   cancelAppointment,
   rescheduleAppointment,
 } from "./bookingData.js";
@@ -50,7 +52,10 @@ function initState() {
     pendingDate: null,
     pendingTime: null,
     patientName: null,
-    patientPhone: null,
+    patientEmail: null,
+    // The address a code was e-mailed to, and whether it's been confirmed.
+    codeEmail: null,
+    emailVerified: false,
     appointments: [],
     selectedAppointment: null,
   };
@@ -280,7 +285,7 @@ function whoChips(session) {
   const topics = recommended.length
     ? ["Anxiety", "Stress"]
     : ["Anxiety", "Depression", "Stress", "OCD", "Addiction", "For my child"];
-  return [...recommended, ...topics, NEVER_MIND];
+  return [...recommended, ...topics, "Any doctor", NEVER_MIND];
 }
 
 function askWho(state, session, { intro } = {}) {
@@ -418,7 +423,7 @@ async function handleDateAnswer(state, message, doctorId) {
 function confirmBookingPrompt(state, prefix = "") {
   state.stage = "confirming_booking";
   return say(
-    `${prefix}Please confirm: **${state.selectedDoctor.name}** on **${formatDate(state.date)} at ${formatTime(state.time)}**, for **${state.patientName}** (mobile ${state.patientPhone}). Shall I book it?`,
+    `${prefix}Please confirm: **${state.selectedDoctor.name}** on **${formatDate(state.date)} at ${formatTime(state.time)}**, for **${state.patientName}** (${maskEmail(state.patientEmail)}). Shall I book it?`,
     ["Yes, book it", "No, don't book"]
   );
 }
@@ -438,13 +443,78 @@ function confirmReschedulePrompt(state, prefix = "") {
 function afterTimeChosen(state, time, prefix = "") {
   state.time = time;
   if (state.flow === "reschedule") return confirmReschedulePrompt(state, prefix);
-  if (state.patientName && state.patientPhone) return confirmBookingPrompt(state, prefix);
-  if (state.patientName) {
-    state.stage = "awaiting_phone";
-    return say(`${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is, for ${state.patientName}. And a 10-digit mobile number for the booking?`, [NEVER_MIND]);
+  return askForDetails(state, `${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is. `);
+}
+
+// ---- e-mail verification (booking, and looking up existing bookings) ----
+
+const DEV_ECHO = process.env.OTP_DEV_ECHO === "true" && process.env.NODE_ENV !== "production";
+const RESEND = "Resend code";
+const ASK_EMAIL = "What's your email address? I'll send a 6-digit code to confirm it's you.";
+
+/** E-mails a code to `email` and moves to `nextStage` to wait for it. */
+async function sendCode(state, email, ctx, nextStage) {
+  const ipOk = !ctx.ip || limiters.emailCodePerIp.consume(ctx.ip).ok;
+  if (!ipOk || !limiters.emailCodePerAddress.consume(email).ok) {
+    reset(state);
+    return say("I've sent quite a few codes already. For your security, please try again in a few minutes.");
   }
-  state.stage = "awaiting_name";
-  return say(`${prefix}**${formatDate(state.date)} at ${formatTime(time)}** it is. What's the patient's full name?`, [NEVER_MIND]);
+  try {
+    const code = await issueOtp(`email:${email}`);
+    await sendLoginCodeEmail(email, code);
+    state.codeEmail = email;
+    state.stage = nextStage;
+    const echo = DEV_ECHO ? ` _(Test mode: the code is ${code}.)_` : "";
+    return say(`I've emailed a 6-digit code to **${maskEmail(email)}**. Type it here. It expires in 5 minutes.${echo}`, [RESEND, NEVER_MIND]);
+  } catch (err) {
+    console.error("Verification e-mail failed:", err?.message || err);
+    reset(state);
+    return say("I couldn't send the email just now. Please try again in a little while, or call us on 8800000255.");
+  }
+}
+
+/** @returns {Promise<{verified: true} | {reply: object}>} */
+async function checkCode(state, message, ctx, stage) {
+  if (/\bresend\b|\bsend (?:it )?again\b|\bnew code\b|\bdidn'?t (?:get|receive)\b/i.test(message)) {
+    return { reply: await sendCode(state, state.codeEmail, ctx, stage) };
+  }
+  const code = message.replace(/\s+/g, "").match(/\d{6}/)?.[0];
+  if (!code) return { reply: say("Please type the 6-digit code from the email.", [RESEND, NEVER_MIND]) };
+  const result = await verifyOtp(`email:${state.codeEmail}`, code);
+  if (result === "ok") {
+    ctx.session.verifiedEmail = state.codeEmail;
+    return { verified: true };
+  }
+  if (result === "expired") return { reply: say("That code has expired. Tap **Resend code** for a fresh one.", [RESEND, NEVER_MIND]) };
+  if (result === "locked") {
+    reset(state);
+    return { reply: say("Too many wrong tries, so I've stopped for your security. You can start again in a few minutes.") };
+  }
+  return { reply: say("That code doesn't match. Please check the email and try again.", [RESEND, NEVER_MIND]) };
+}
+
+// The current turn's request context (client IP, chat session) for each flow
+// state, so helpers deep in slot-picking can rate-limit and check a verified
+// address without every function passing it along.
+const TURN_CTX = new WeakMap();
+
+/** Asks for whatever's still missing (name, email, the e-mailed code), then confirms. */
+async function askForDetails(state, lead = "", ctx = TURN_CTX.get(state) || {}) {
+  if (!state.patientName) {
+    state.stage = "awaiting_name";
+    return say(`${lead}What's the patient's full name?`, [NEVER_MIND]);
+  }
+  if (!state.patientEmail) {
+    state.stage = "awaiting_email";
+    return say(`${lead}${ASK_EMAIL}`, [NEVER_MIND]);
+  }
+  // Already confirmed this address earlier in the chat: no second code.
+  if (state.emailVerified || ctx.session?.verifiedEmail === state.patientEmail) {
+    state.emailVerified = true;
+    return confirmBookingPrompt(state, lead);
+  }
+  const sent = await sendCode(state, state.patientEmail, ctx, "awaiting_booking_code");
+  return lead ? { ...sent, reply: `${lead}${sent.reply}` } : sent;
 }
 
 // Parts of the day, matching how formatSlotList splits Morning/Afternoon.
@@ -519,12 +589,19 @@ async function handleBookFlow(state, message, ctx) {
       // don't ask again for what's already been given.
       const given = extractPatientDetails(message);
       if (given.name) state.patientName = given.name;
-      if (given.phone) state.patientPhone = given.phone;
+      if (given.email) state.patientEmail = given.email;
       return resolveDoctorCandidates(state, await attemptSearch(message, { session }), session);
     }
 
-    case "awaiting_search":
+    case "awaiting_search": {
+      // A date instead of a doctor ("tomorrow"): keep it and ask who again.
+      const date = parseDate(message, { strict: true });
+      if (date && checkBookableDate(date) === "ok") {
+        state.pendingDate = date;
+        return askWho(state, session, { intro: `**${formatDate(date)}** works.` });
+      }
       return resolveDoctorCandidates(state, await attemptSearch(message, { allowRawNameFallback: true, session }), session);
+    }
 
     case "choosing_doctor": {
       const picked = pickDoctor(state.candidates, message);
@@ -548,15 +625,21 @@ async function handleBookFlow(state, message, ctx) {
       const name = cleanPersonName(message);
       if (!name) return say("Just the patient's full name, please (for example, Priya Sharma).", [NEVER_MIND]);
       state.patientName = name;
-      state.stage = "awaiting_phone";
-      return say("And a 10-digit mobile number for the booking?", [NEVER_MIND]);
+      return askForDetails(state, "", ctx);
     }
 
-    case "awaiting_phone": {
-      const phone = normalizePhone(message);
-      if (!phone) return say("That doesn't look like a 10-digit mobile number — could you share it again?", [NEVER_MIND]);
-      state.patientPhone = phone;
-      return confirmBookingPrompt(state);
+    case "awaiting_email": {
+      const email = normalizeEmail(extractPatientDetails(message).email || message);
+      if (!email) return say("That doesn't look like an email address. Could you type it again? (for example, priya@gmail.com)", [NEVER_MIND]);
+      state.patientEmail = email;
+      return askForDetails(state, "", ctx);
+    }
+
+    case "awaiting_booking_code": {
+      const checked = await checkCode(state, message, ctx, "awaiting_booking_code");
+      if (checked.reply) return checked.reply;
+      state.emailVerified = true;
+      return confirmBookingPrompt(state, "Thanks, that's confirmed. ");
     }
 
     case "confirming_booking": {
@@ -577,15 +660,17 @@ async function handleBookFlow(state, message, ctx) {
           doctorId: String(doctor._id),
           doctorName: doctor.name,
           patientName: state.patientName,
-          patientPhone: state.patientPhone,
+          patientEmail: state.patientEmail,
           date: state.date,
           time: state.time,
         });
+        const email = state.patientEmail;
         reset(state);
         ctx.session.lastBookedAt = Date.now();
         const when = `${formatDate(appt.date)} at ${formatTime(appt.time)}`;
+        sendBookingConfirmationEmail({ email, patientName: appt.patientName, doctorName: appt.doctorName, date: formatDate(appt.date), time: formatTime(appt.time) });
         return say(
-          `You're booked! **${appt.doctorName}** on **${when}**, under ${appt.patientName}. We'll see you then.\n\nIf your plans change, just say "reschedule my appointment" or "cancel my appointment".`,
+          `You're booked! **${appt.doctorName}** on **${when}**, for ${appt.patientName}. A confirmation is on its way to ${maskEmail(email)}.\n\nTo change it later, just say "reschedule my appointment" or "cancel my appointment".`,
           undefined,
           { llmNote: `They just booked an appointment with ${appt.doctorName} for ${when}.` }
         );
@@ -607,45 +692,56 @@ async function handleBookFlow(state, message, ctx) {
 }
 
 // ---- looking up appointments (shared by view / cancel / reschedule) ----
+// By e-mail plus an e-mailed code: knowing someone's address isn't enough to
+// see or change their appointments.
 
-const ASK_PHONE_LOOKUP = "Sure — what mobile number did you book with?";
+const LOOKUP_STAGES = ["awaiting_lookup_email", "awaiting_lookup_code"];
 
 /** @returns {Promise<{appts: object[]} | {reply: object}>} */
-async function lookUpByPhone(state, message, ctx) {
-  const phone = normalizePhone(message);
-  if (!phone) {
-    state.stage = "awaiting_phone_lookup";
-    return { reply: say("That doesn't look like a 10-digit mobile number — could you share it again?", [NEVER_MIND]) };
+async function lookUp(state, message, ctx) {
+  if (state.stage === "awaiting_lookup_code") {
+    const checked = await checkCode(state, message, ctx, "awaiting_lookup_code");
+    if (checked.reply) return { reply: checked.reply };
+    return listFor(state, state.codeEmail);
+  }
+  const email = normalizeEmail(extractPatientDetails(message).email || message);
+  if (!email) {
+    state.stage = "awaiting_lookup_email";
+    return { reply: say("That doesn't look like an email address. Could you type it again?", [NEVER_MIND]) };
   }
   if (!lookupAllowed(ctx)) {
     reset(state);
     return { reply: say(LOOKUP_LIMITED) };
   }
-  const appts = await listAppointmentsByPhone(phone, { upcomingOnly: true });
-  if (appts === null) {
+  return { reply: await sendCode(state, email, ctx, "awaiting_lookup_code") };
+}
+
+async function listFor(state, email) {
+  const all = await listAppointmentsByEmail(email);
+  if (all === null) {
     reset(state);
     return { reply: say(UNAVAILABLE) };
   }
-  return { appts };
+  const today = clinicToday();
+  return { appts: all.filter((appt) => appt.date >= today) };
 }
 
-// The first message can already carry the number ("show my bookings for 98...").
-function startLookup(state, message) {
-  state.stage = "awaiting_phone_lookup";
-  return normalizePhone(message) ? null : say(ASK_PHONE_LOOKUP, [NEVER_MIND]);
+// Already confirmed an address in this chat: list straight away. Otherwise
+// ask for it, unless it came with the request ("show my bookings, meena@...").
+async function startLookup(state, message, ctx) {
+  if (ctx.session?.verifiedEmail) return listFor(state, ctx.session.verifiedEmail);
+  state.stage = "awaiting_lookup_email";
+  if (extractPatientDetails(message).email) return lookUp(state, message, ctx);
+  return { reply: say("Sure. What email address did you book with? I'll send a code to confirm it's you.", [NEVER_MIND]) };
 }
 
 // ---- view my bookings ----
 
 async function handleViewFlow(state, message, ctx) {
-  if (state.stage !== "awaiting_phone_lookup") {
-    const ask = startLookup(state, message);
-    if (ask) return ask;
-  }
-  const { appts, reply } = await lookUpByPhone(state, message, ctx);
+  const { appts, reply } = LOOKUP_STAGES.includes(state.stage) ? await lookUp(state, message, ctx) : await startLookup(state, message, ctx);
   if (reply) return reply;
   reset(state);
-  if (!appts.length) return say("You don't have any upcoming appointments booked under that number.");
+  if (!appts.length) return say("You don't have any upcoming appointments booked with that email.");
   return say(
     `Here are your upcoming appointments:\n\n${appts.map((a, i) => `${i + 1}. ${formatAppointment(a)}`).join("\n")}\n\nIf you need to change one, just say "reschedule my appointment" or "cancel my appointment".`
   );
@@ -662,17 +758,14 @@ function confirmCancel(state, appt) {
 async function handleCancelFlow(state, message, ctx) {
   switch (state.stage) {
     case null:
-    case undefined: {
-      const ask = startLookup(state, message);
-      if (ask) return ask;
-    }
-    // falls through: the number came with the request itself
-    case "awaiting_phone_lookup": {
-      const { appts, reply } = await lookUpByPhone(state, message, ctx);
+    case undefined:
+    case "awaiting_lookup_email":
+    case "awaiting_lookup_code": {
+      const { appts, reply } = LOOKUP_STAGES.includes(state.stage) ? await lookUp(state, message, ctx) : await startLookup(state, message, ctx);
       if (reply) return reply;
       if (!appts.length) {
         reset(state);
-        return say("You don't have any upcoming appointments to cancel under that number.");
+        return say("You don't have any upcoming appointments to cancel with that email.");
       }
       if (appts.length === 1) return confirmCancel(state, appts[0]);
       state.appointments = appts;
@@ -723,17 +816,14 @@ function askNewDate(state, appt) {
 async function handleRescheduleFlow(state, message, ctx) {
   switch (state.stage) {
     case null:
-    case undefined: {
-      const ask = startLookup(state, message);
-      if (ask) return ask;
-    }
-    // falls through: the number came with the request itself
-    case "awaiting_phone_lookup": {
-      const { appts, reply } = await lookUpByPhone(state, message, ctx);
+    case undefined:
+    case "awaiting_lookup_email":
+    case "awaiting_lookup_code": {
+      const { appts, reply } = LOOKUP_STAGES.includes(state.stage) ? await lookUp(state, message, ctx) : await startLookup(state, message, ctx);
       if (reply) return reply;
       if (!appts.length) {
         reset(state);
-        return say("You don't have any upcoming appointments to reschedule under that number.");
+        return say("You don't have any upcoming appointments to reschedule with that email.");
       }
       if (appts.length === 1) return askNewDate(state, appts[0]);
       state.appointments = appts;
@@ -824,7 +914,9 @@ export async function handleBookingTurn(session, message, ctx = {}) {
     state.flow = intentFlow;
   }
 
-  return { handled: true, ...(await FLOW_HANDLERS[state.flow](state, message, { ...ctx, session })) };
+  const turnCtx = { ...ctx, session };
+  TURN_CTX.set(state, turnCtx);
+  return { handled: true, ...(await FLOW_HANDLERS[state.flow](state, message, turnCtx)) };
 }
 
 /** Drops any in-progress booking flow (e.g. on crisis language or "never mind"). */

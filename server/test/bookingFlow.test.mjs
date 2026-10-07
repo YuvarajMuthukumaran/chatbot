@@ -10,6 +10,7 @@ import { handleBookingTurn } from "../lib/bookingFlow.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
 import { clinicToday, addDays, formatDate } from "../lib/clinicTime.js";
 import { BOOKING_WINDOW_DAYS } from "../lib/slots.js";
+import { limiters } from "../lib/rateLimit.js";
 
 // Nothing here should reach the hospital's HMS (it creates a patient record
 // on every unmatched lookup) — a dead local address makes sure of it.
@@ -27,7 +28,18 @@ beforeEach(async () => {
   db = createFakeDb();
   await setDb(db);
   for (const doctor of DIRECTORY) await db.collection("doctors").insertOne({ ...doctor });
+  for (const limiter of Object.values(limiters)) limiter.reset();
 });
+
+// Test mode (OTP_DEV_ECHO, set in test/setup.mjs) shows the e-mailed code in the reply.
+const codeIn = (reply) => reply.match(/the code is (\d{6})/)?.[1];
+
+/** Answers the e-mailed code the last reply asked for. */
+async function enterCode(session, lastReply, ctx = {}) {
+  const code = codeIn(lastReply);
+  assert.ok(code, `expected a code in: ${lastReply}`);
+  return converse(session, [code], ctx);
+}
 
 const tomorrow = () => addDays(clinicToday(), 1);
 
@@ -48,7 +60,7 @@ async function seedAppointment(fields) {
     doctorId: String(doctor._id),
     doctorName: doctor.name,
     patientName: "Priya Sharma",
-    patientPhone: "9876543210",
+    patientEmail: "priya@gmail.com",
     date: addDays(clinicToday(), 3),
     time: "10:00",
     status: "booked",
@@ -146,21 +158,44 @@ test("a concern nobody is tagged for falls back to the generalist", async () => 
 
 // ---- the full booking conversation ----
 
-test("full booking: Indian time formats, name and phone cleanup, and a confirmation step", async () => {
+test("full booking: Indian time formats, name cleanup, an e-mailed code, and a confirmation step", async () => {
   const session = {};
-  const result = await converse(session, ["book an appointment with dr pooja", "Tomorrow", "10.30", "my name is Priya Sharma", "+91 98765 43210"]);
+  const sent = await converse(session, ["book an appointment with dr pooja", "Tomorrow", "10.30", "my name is Priya Sharma", " Priya.Sharma@Gmail.com "]);
+  assert.match(sent.reply, /emailed a 6-digit code to \*\*p•••@gmail\.com\*\*/);
+  assert.ok(sent.quickReplies.includes("Resend code"));
+
+  const result = await enterCode(session, sent.reply);
   assert.match(result.reply, /Please confirm/);
   assert.match(result.reply, /10:30 AM/);
   assert.equal((await bookedAppointments()).length, 0, "nothing is booked before confirming");
 
   const confirmed = await converse(session, ["Yes, book it"]);
   assert.match(confirmed.reply, /You're booked!/);
-  assert.ok(confirmed.llmNote && !confirmed.llmNote.includes("9876543210"), "the LLM note carries no phone number");
+  assert.match(confirmed.reply, /confirmation is on its way/);
+  assert.ok(confirmed.llmNote && !confirmed.llmNote.includes("@"), "the LLM note carries no email address");
   const [appt] = await bookedAppointments();
   assert.equal(appt.time, "10:30"); // "10.30" used to be booked as 10:00
   assert.equal(appt.date, tomorrow());
   assert.equal(appt.patientName, "Priya Sharma");
-  assert.equal(appt.patientPhone, "9876543210");
+  assert.equal(appt.patientEmail, "priya.sharma@gmail.com");
+});
+
+test("a wrong code is refused, and a new one can be sent", async () => {
+  const session = {};
+  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "priya@gmail.com"]);
+  const wrong = await converse(session, ["000000" === codeIn(sent.reply) ? "111111" : "000000"]);
+  assert.match(wrong.reply, /doesn't match/);
+  const resent = await converse(session, ["Resend code"]);
+  assert.match(resent.reply, /emailed a 6-digit code/);
+  assert.notEqual(codeIn(resent.reply), undefined);
+  const ok = await enterCode(session, resent.reply);
+  assert.match(ok.reply, /Please confirm/);
+});
+
+test("an address that isn't an email is asked for again", async () => {
+  const session = {};
+  const result = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "9876543210"]);
+  assert.match(result.reply, /doesn't look like an email/);
 });
 
 test("an afternoon time without am/pm ('2:30') means 2:30 PM", async () => {
@@ -201,7 +236,8 @@ test("past dates and dates beyond the booking window are refused", async () => {
 
 test("declining at the confirmation books nothing", async () => {
   const session = {};
-  await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "9876543210"]);
+  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "priya@gmail.com"]);
+  await enterCode(session, sent.reply);
   const result = await converse(session, ["No, don't book"]);
   assert.match(result.reply, /haven't booked anything/);
   assert.equal((await bookedAppointments()).length, 0);
@@ -210,16 +246,16 @@ test("declining at the confirmation books nothing", async () => {
 test("a slot taken by someone else in the meantime is re-offered, not double-booked", async () => {
   const first = {};
   const second = {};
-  const steps = ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "9876543210"];
-  await converse(first, steps);
-  await converse(second, [...steps.slice(0, 3), "Ravi Kumar", "9123456780"]);
+  const steps = ["book an appointment with dr pooja", "tomorrow", "10:00"];
+  await enterCode(first, (await converse(first, [...steps, "Priya Sharma", "priya@gmail.com"])).reply);
+  await enterCode(second, (await converse(second, [...steps, "Ravi Kumar", "ravi@gmail.com"])).reply);
   await converse(first, ["yes"]);
   const result = await converse(second, ["yes"]);
   assert.match(result.reply, /that slot was just taken/);
   assert.doesNotMatch(result.quickReplies.join(" "), /^10:00 AM$/m);
   assert.equal((await bookedAppointments()).length, 1);
 
-  // Picking another time goes straight back to confirming — no re-asking for details.
+  // Picking another time goes straight back to confirming: no new code, no re-asking for details.
   const retry = await converse(second, ["10:30"]);
   assert.match(retry.reply, /Please confirm/);
   assert.match(retry.reply, /Ravi Kumar/);
@@ -253,7 +289,7 @@ test("crisis language mid-flow gets the crisis reply and ends the form", async (
 test("asking for a different booking action mid-flow switches to it", async () => {
   const session = {};
   const result = await converse(session, ["book an appointment with dr pooja", "actually, cancel my appointment"]);
-  assert.match(result.reply, /mobile number did you book with/);
+  assert.match(result.reply, /What email address did you book with/);
   assert.equal(session.booking.flow, "cancel");
 });
 
@@ -269,22 +305,44 @@ test("'yes, cancel it' at the cancel confirmation actually cancels", async () =>
   // cancellation silently dropped it and the appointment stayed booked.
   await seedAppointment();
   const session = {};
-  const confirm = await converse(session, ["cancel my appointment", "9876543210"]);
+  const sent = await converse(session, ["cancel my appointment", "priya@gmail.com"]);
+  const confirm = await enterCode(session, sent.reply);
   assert.match(confirm.reply, /Cancel your appointment with \*\*Dr\. Pooja Sharma\*\*/);
   const done = await converse(session, ["yes, cancel it"]);
   assert.match(done.reply, /has been cancelled/);
   assert.equal((await bookedAppointments()).length, 0);
 });
 
-test("the phone number can come with the request itself", async () => {
+test("someone else's appointments can't be seen with just their email", async () => {
   await seedAppointment();
-  const result = await converse({}, ["show my bookings for 98765 43210"]);
+  const session = {};
+  await converse(session, ["show my bookings", "priya@gmail.com"]);
+  const guess = await converse(session, ["123456"]);
+  assert.doesNotMatch(guess.reply, /Dr\. Pooja Sharma/);
+});
+
+test("the email can come with the request itself", async () => {
+  await seedAppointment();
+  const session = {};
+  const sent = await converse(session, ["show my bookings for priya@gmail.com"]);
+  const result = await enterCode(session, sent.reply);
   assert.match(result.reply, /Here are your upcoming appointments/);
+});
+
+test("once an email is confirmed in the chat, looking up bookings needs no second code", async () => {
+  await seedAppointment();
+  const session = {};
+  const sent = await converse(session, ["show my bookings", "priya@gmail.com"]);
+  await enterCode(session, sent.reply);
+  const again = await converse(session, ["show my bookings"]);
+  assert.match(again.reply, /Here are your upcoming appointments/);
 });
 
 test("'upcoming' appointments leave out past ones", async () => {
   await seedAppointment({ date: addDays(clinicToday(), -10) });
-  const result = await converse({}, ["show my bookings", "9876543210"]);
+  const session = {};
+  const sent = await converse(session, ["show my bookings", "priya@gmail.com"]);
+  const result = await enterCode(session, sent.reply);
   assert.match(result.reply, /don't have any upcoming appointments/);
 });
 
@@ -292,7 +350,9 @@ test("rescheduling asks for confirmation, then moves the appointment", async () 
   await seedAppointment();
   const session = {};
   const target = addDays(clinicToday(), 5);
-  const confirm = await converse(session, ["reschedule my appointment", "9876543210", target, "3pm"]);
+  const sent = await converse(session, ["reschedule my appointment", "priya@gmail.com"]);
+  await enterCode(session, sent.reply);
+  const confirm = await converse(session, [target, "3pm"]);
   assert.match(confirm.reply, /Move your appointment/);
   const done = await converse(session, ["Yes, move it"]);
   assert.match(done.reply, /is now on/);
@@ -301,11 +361,10 @@ test("rescheduling asks for confirmation, then moves the appointment", async () 
   assert.equal(appt.time, "15:00");
 });
 
-test("phone lookups are rate limited per client", async () => {
-  const ctx = { ip: "203.0.113.7" };
+test("e-mailed codes are rate limited per address", async () => {
   let result;
-  for (let i = 0; i < 16; i++) result = await converse({}, ["show my bookings for 9876543210"], ctx);
-  assert.match(result.reply, /only look up a few phone numbers/);
+  for (let i = 0; i < 4; i++) result = await converse({}, ["show my bookings for priya@gmail.com"], { ip: `203.0.113.${i}` });
+  assert.match(result.reply, /sent quite a few codes/);
 });
 
 test("a flow that keeps re-asking the same question lets the person go", async () => {
@@ -323,17 +382,26 @@ test("'morning' at the time step narrows the list to morning slots", async () =>
   assert.ok(result.quickReplies.every((q) => q === "Never mind" || /AM|12:\d\d PM/.test(q)), result.quickReplies.join());
 });
 
-test("a name and number given in the first message aren't asked for again, and 'yes' is never a name", async () => {
+test("a name and email given in the first message aren't asked for again, and 'yes' is never a name", async () => {
   const session = {};
-  const result = await converse(session, [
-    "book an appointment with dr pooja sharma tomorrow at 10am for my mother her name is Sunita Devi and number is 9876501234",
+  const sent = await converse(session, [
+    "book an appointment with dr pooja sharma tomorrow at 10am for my mother her name is Sunita Devi and email is sunita.devi@gmail.com",
   ]);
+  assert.match(sent.reply, /emailed a 6-digit code to \*\*s•••@gmail\.com\*\*/);
+  const result = await enterCode(session, sent.reply);
   assert.match(result.reply, /Please confirm/);
   assert.match(result.reply, /Sunita Devi/);
-  assert.match(result.reply, /9876501234/);
 
   const noName = {};
   await converse(noName, ["book an appointment with dr pooja sharma", "tomorrow", "10:00 AM"]);
   const yes = await converse(noName, ["yes"]);
   assert.match(yes.reply, /full name/);
+});
+
+test("a date given when asked for a doctor is kept, and the doctor is asked again", async () => {
+  const session = {};
+  await handleBookingTurn(session, "i want to book appointment");
+  const r = await handleBookingTurn(session, "tomorrow");
+  assert.match(r.reply, /works\. Who would you like to see on/);
+  assert.ok(r.quickReplies.includes("Any doctor"));
 });

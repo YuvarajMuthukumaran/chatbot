@@ -3,13 +3,11 @@ import { motion } from "framer-motion";
 import CrisisButton from "./CrisisButton.jsx";
 import logo from "../assets/tulasi-logo.webp";
 
-// `short` is the visible label (from lg up); `label` is what screen readers
+// `short` is the visible label (from sm up); `label` is what screen readers
 // and tooltips get.
 const NAV_LINKS = [
   { to: "/", label: "Chat", short: "Chat", icon: "💬", end: true },
-  { to: "/medicines", label: "Medicine guide", short: "Medicines", icon: "💊" },
   { to: "/doctors", label: "Find a Doctor", short: "Doctors", icon: "🩺" },
-  { to: "/appointments", label: "My Appointments", short: "Appointments", icon: "📅" },
 ];
 
 export default function Layout() {
@@ -57,7 +55,7 @@ export default function Layout() {
               key={link.to}
               to={link.to}
               end={link.end}
-              // Icon-only below lg: the label must still reach screen readers.
+              // Icon-only on phones: the label must still reach screen readers.
               aria-label={link.label}
               title={link.label}
               className={({ isActive }) =>
@@ -67,7 +65,7 @@ export default function Layout() {
               }
             >
               <span aria-hidden="true">{link.icon}</span>
-              <span className="hidden lg:inline">{link.short}</span>
+              <span className="hidden sm:inline">{link.short}</span>
             </NavLink>
           ))}
         </nav>

@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
 
 // Cards drawn inside a Tulasi chat bubble: screening progress, screening
 // results, and compact medicine cards.
@@ -178,17 +177,28 @@ export function MedicineCard({ medicine }) {
             ))}
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-rose-700">
-            <span aria-hidden="true">⚠️</span> {medicine.warningCount} warning signs to know
-          </span>
-          <Link
-            to={`/medicines/${medicine.slug}`}
-            className="rounded-full bg-blue-700 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-          >
-            Full guide →
-          </Link>
-        </div>
+        {/* Warning signs fold open here: there's no separate guide page. */}
+        {medicine.warnings?.length > 0 && (
+          <details className="group rounded-xl bg-rose-50 px-3 py-2 ring-1 ring-rose-100">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold text-rose-700">
+              <span>
+                <span aria-hidden="true">⚠️</span> {medicine.warnings.length} warning signs: get help right away
+              </span>
+              <span aria-hidden="true" className="transition-transform group-open:rotate-180">
+                ⌄
+              </span>
+            </summary>
+            <ul className="mt-2 space-y-1.5 text-xs text-rose-900">
+              {medicine.warnings.map((w) => (
+                <li key={w} className="flex gap-1.5">
+                  <span aria-hidden="true" className="font-bold text-rose-500">!</span>
+                  {w}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] font-medium text-rose-800">Emergency: 112 · Tele-MANAS (24/7): 14416</p>
+          </details>
+        )}
         <p className="text-[11px] text-slate-500">Don't start, stop or change a medicine without your doctor.</p>
       </div>
     </motion.div>

@@ -3,10 +3,6 @@ import { MotionConfig } from "framer-motion";
 import Layout from "./components/Layout.jsx";
 import Chat from "./pages/Chat.jsx";
 import Doctors from "./pages/Doctors.jsx";
-import DoctorProfile from "./pages/DoctorProfile.jsx";
-import MyAppointments from "./pages/MyAppointments.jsx";
-import Medicines from "./pages/Medicines.jsx";
-import Medicine from "./pages/Medicine.jsx";
 import { ChatProvider } from "./lib/chatStore.jsx";
 
 export default function App() {
@@ -18,10 +14,6 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/doctors" element={<Doctors />} />
-            <Route path="/doctors/:id" element={<DoctorProfile />} />
-            <Route path="/appointments" element={<MyAppointments />} />
-            <Route path="/medicines" element={<Medicines />} />
-            <Route path="/medicines/:slug" element={<Medicine />} />
             <Route path="*" element={<Chat />} />
           </Route>
         </Routes>

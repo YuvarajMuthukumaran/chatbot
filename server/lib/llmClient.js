@@ -66,7 +66,8 @@ const MAX_HISTORY_TURNS = Number(process.env.MAX_HISTORY_TURNS) || 20;
 const TEMPERATURE = Number(process.env.LLM_TEMPERATURE ?? 0.7);
 const MAX_COMPLETION_TOKENS = Number(process.env.LLM_MAX_TOKENS) || 2048;
 
-const MAX_RETRY_WAIT_MS = 8000;
+// Total time a reply may be held while every model is rate-limited.
+const MAX_TOTAL_WAIT_MS = 15000;
 
 /** How long a 429 says to wait ("Please try again in 4.83s" / "in 1m2s"), in ms, or null. */
 export function retryAfterMs(err) {
@@ -155,7 +156,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
   const messages = toChatMessages(history, message, extraContext, turnNote);
 
   let lastErr = null;
-  let retriedAfterWait = false;
+  let waitedMs = 0;
 
   for (let i = 0; i < MODEL_CHAIN.length; i++) {
     const model = MODEL_CHAIN[i];
@@ -206,15 +207,15 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
       }
 
       // Every model is rate-limited, but the last one says it frees up in a
-      // few seconds ("Please try again in 4.8s"): wait once and retry rather
-      // than send the person away. Longer waits (a daily cap) aren't worth
-      // holding the reply for.
-      const waitMs = status === 429 && !retriedAfterWait ? retryAfterMs(err) : null;
-      if (waitMs !== null && waitMs <= MAX_RETRY_WAIT_MS) {
-        retriedAfterWait = true;
+      // few seconds ("Please try again in 4.8s"): wait and start again from
+      // the best model (it may have freed up too), rather than send the
+      // person away. Longer waits (a daily cap) aren't worth holding for.
+      const waitMs = status === 429 ? retryAfterMs(err) : null;
+      if (waitMs !== null && waitedMs + waitMs <= MAX_TOTAL_WAIT_MS) {
+        waitedMs += waitMs;
         console.warn(`All models rate-limited; retrying "${model}" in ${Math.ceil(waitMs / 1000)}s`);
         await new Promise((resolve) => setTimeout(resolve, waitMs + 250));
-        i -= 1;
+        i = -1;
         continue;
       }
 
@@ -222,7 +223,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
         return {
           ok: false,
           rateLimited: true,
-          text: "I need a moment — please try again shortly.",
+          text: "A lot of people are talking to me right now, so I couldn't reply. Please send that again in a few seconds.",
         };
       }
 

@@ -13,6 +13,10 @@ import { createFakeDb } from "./fakeDb.js";
 
 const HMS_STUB_PORT = Number(process.env.HMS_STUB_PORT) || 8799;
 
+// Show e-mailed booking codes in the chat, so bookings can be tried without a
+// real inbox. (Never applies in production: bookingFlow.js checks NODE_ENV.)
+process.env.OTP_DEV_ECHO ??= "true";
+
 // The one patient the stub HMS "knows". Any other details behave like the
 // real API does on a miss: a brand-new patient is "registered".
 const DEMO_PATIENT = { first: "ASHA", phone: "9999999999", uhid: "SANDBOX-UHID-1", patient_id: "254" };

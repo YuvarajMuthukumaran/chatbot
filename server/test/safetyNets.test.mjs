@@ -153,3 +153,25 @@ test("code/homework requests get a decline reminder, venting about them doesn't"
   assert.strictEqual(offScopeNote("I can't do my homework, I'm so stressed"), null);
   assert.strictEqual(offScopeNote("my code keeps failing and I feel useless"), null);
 });
+
+test("a technique or specialist mention isn't repeated reply after reply", async () => {
+  const { repetitionNote } = await import("../lib/conversationCues.js");
+  const turn = (role, text) => ({ role, text });
+  assert.strictEqual(repetitionNote([turn("user", "hi"), turn("model", "Hey, good to see you.")]), null);
+  assert.match(repetitionNote([turn("model", "Try this: breathe in for 4, out for 4.")]), /Don't offer any technique/);
+  assert.match(repetitionNote([turn("model", "Take a deep breath or a quick stretch.")]), /Don't offer any technique/);
+  assert.match(repetitionNote([turn("model", "One of our specialists could help."), turn("model", "That's hard."), turn("model", "Makes sense.")]), /Don't mention specialists/);
+  // Private booking/records turns don't count.
+  assert.strictEqual(repetitionNote([{ role: "model", text: "Book an appointment with a psychiatrist", private: true }]), null);
+});
+
+test("frustration aimed at the bot keeps the thread instead of restarting", async () => {
+  const { frustrationNote } = await import("../lib/conversationCues.js");
+  const history = [{ role: "user", text: "are you in noida" }, { role: "model", text: "We have centres in..." }];
+  for (const m of ["aap pagal ho kya", "you're useless", "wtf", "are you even listening", "this is pointless", "kuch samajh nahi aata"]) {
+    assert.match(frustrationNote(history, m) || "", /noida/, m);
+  }
+  for (const m of ["i feel crazy lately", "my boss is useless", "I'm so mad at my brother"]) {
+    assert.strictEqual(frustrationNote(history, m), null, m);
+  }
+});

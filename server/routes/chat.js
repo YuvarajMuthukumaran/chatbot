@@ -9,7 +9,7 @@ import {
   doctorHelpReason,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
-import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote } from "../lib/conversationCues.js";
+import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote, repetitionNote, frustrationNote } from "../lib/conversationCues.js";
 import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
 import { findMedicineCards } from "../lib/toolLinks.js";
 import { detectAssessmentOffer, OFFER_LABELS } from "../lib/assessments.js";
@@ -187,7 +187,15 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       // Code/homework requests get a reminder to decline; "do I have
       // bipolar?" a reminder not to invent a quiz.
       turnNote:
-        [greetingFollowUpNote(session.history, message), romanScriptNote(message), offScopeNote(message), selfDiagnosisNote(message)]
+        [
+          greetingFollowUpNote(session.history, message),
+          frustrationNote(session.history, message),
+          romanScriptNote(message),
+          offScopeNote(message),
+          selfDiagnosisNote(message),
+          // No technique or specialist mention again and again.
+          repetitionNote(session.history),
+        ]
           .filter(Boolean)
           .join("\n\n") || undefined,
     });

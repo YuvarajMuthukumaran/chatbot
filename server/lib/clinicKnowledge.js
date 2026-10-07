@@ -40,12 +40,24 @@ const TRANSPORT =
 
 export const CLINIC_TOPICS = [
   {
+    id: "privacy",
+    match: (t) => /\b(?:privacy|confidential|who (?:can|will|else) (?:see|read)|(?:is|are) (?:this|my|these|our) (?:chats?|messages?|conversations?|data) (?:saved|stored|recorded|safe|secure|private)|(?:save|store|record|keep)s? (?:my|this|the|our) (?:chats?|messages?|conversations?|data))\b/i.test(t),
+    facts: [
+      "The conversation is saved on the person's own device (browser storage) so they can come back to it; \"New chat\" clears it.",
+      "On the server it is kept only in memory while they chat, and is deleted after about 12 idle hours. It isn't saved to the clinic's records, and clinic staff don't read these chats.",
+      "Replies are written by an AI model run by an outside AI service, which receives the messages to generate replies. Booking details (name, email, appointment) are saved by the clinic for the appointment.",
+      "Say this plainly and briefly. Don't claim anything beyond these facts (no \"end-to-end encrypted\", no \"only your doctor sees it\").",
+    ],
+  },
+  {
     id: "locations",
     match: (t) => WHERE.test(t),
     facts: [
       "Main hospital: Tulasi Healthcare, Sector 64, Gurugram (Gurgaon), Haryana. A full psychiatric hospital and rehabilitation / de-addiction centre with about 120 beds, where admissions happen. (VN6, VN11, VN38, VN63, VN75)",
       "Delhi: a centre in Chhatarpur / Mehrauli (near Chhatarpur Metro), which also handles long-term residential care, and an OPD clinic near Hauz Khas Metro. (VN25, VN30, VN31, VN44, VN68, VN81)",
-      "There are no branches in Noida, Jaipur, or Dehradun. People from other cities can use online video consultations or travel to Gurugram/Delhi. (VN63, VN74, VN82, VN84)",
+      "Noida: Tulasi Healthcare Clinic, an OPD clinic in Noida. The street address and sector are not known here: never guess them, share this map link instead: https://share.google/N04yU0P51YoGghMpX",
+      "There are no branches in Jaipur or Dehradun. People from other cities can use online video consultations or travel to the nearest centre. (VN63, VN74, VN82, VN84)",
+      "When asked where Tulasi is, or about any one city, list every location briefly: Gurugram, Delhi (Chhatarpur and Hauz Khas) and Noida.",
       "Staff share the exact map location on WhatsApp after a call; don't make up landmarks or directions.",
     ],
   },

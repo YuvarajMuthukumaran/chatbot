@@ -65,7 +65,53 @@ export function selfDiagnosisNote(message) {
   if (!SELF_DIAGNOSIS_QUESTION.test(normalizeForIntent(message))) return null;
   return (
     "The person is asking whether they have a condition that has no screening in this chat. Do NOT make up a questionnaire or checklist, ask a list of symptom questions, or suggest what they might have. " +
-    "Respond warmly to what they've noticed, ask at most one gentle question about what's been happening, and explain that only a psychiatrist or psychologist can properly assess it. Offer a Tulasi specialist if it fits."
+    "Respond warmly and briefly to what they've noticed, say that only a psychiatrist or psychologist can properly assess it, and offer a Tulasi specialist if it fits. No need to ask them anything."
+  );
+}
+
+// Breathing/grounding exercises and "a specialist could help" in reply after
+// reply read as scripted and pushy. The prompt says so, but smaller fallback
+// models drift back to it, so recent replies are checked here.
+const TECHNIQUE = /\b(?:breath(?:e|es|ing|s)?|stretch(?:es|ing)?|jot (?:down|it)|inhale|exhale|grounding|box breathing|\d (?:things|counts?) you can|notice (?:three|five|\d) things|close your eyes|journal(?:ing)?|try (?:this|a quick))\b/i;
+const REFERRAL = /\b(?:specialists?|psychiatrists?|psychologists?|therapists?|counsell?ors?|book (?:an )?appointment|professionals?|professional help)\b/i;
+
+/**
+ * Reminders not to repeat a technique (offered in the last reply) or a
+ * specialist mention (in the last three); otherwise null.
+ * @param {Array<{role: string, text: string, private?: boolean}>} history
+ */
+export function repetitionNote(history) {
+  const replies = history.filter((t) => t.role === "model" && !t.private).slice(-3);
+  if (!replies.length) return null;
+  const notes = [];
+  if (TECHNIQUE.test(replies[replies.length - 1].text)) {
+    notes.push("Your last reply already offered an exercise or technique. Don't offer any technique, breathing or grounding exercise in this reply. Just respond to what they said.");
+  }
+  if (replies.some((t) => REFERRAL.test(t.text))) {
+    notes.push("You've recently mentioned a specialist or professional help. Don't mention specialists, doctors, booking or professional help in this reply unless they ask.");
+  }
+  return notes.length ? notes.join(" ") : null;
+}
+
+// Frustration aimed at the bot: "aap pagal ho kya", "you're useless", "wtf".
+// Left alone, the model answers with a fresh "How can I support you?" as if
+// the conversation had restarted.
+const FRUSTRATED_AT_BOT =
+  /\b(?:(?:you|u|ur|you'?re|aap|tum|tu)\b[^.?!]{0,20}\b(?:pagal|stupid|dumb|useless|idiot|mad|crazy|bekaar|bekar|faltu|bakwas|not listening|not helping|don'?t understand|no help)|pagal ho|bakwas|bekaar|faltu|wtf|what the (?:hell|fuck)|are you (?:even )?(?:listening|real|serious)|this is (?:useless|pointless|stupid)|not helpful|samajh (?:nahi|nahin|nhi) (?:aata|aa raha)|kuch samajh)\b/i;
+
+/**
+ * A note to own the frustration and stay on the thread, when the message is
+ * frustration aimed at the bot; otherwise null.
+ * @param {Array<{role: string, text: string, private?: boolean}>} history
+ * @param {string} message
+ */
+export function frustrationNote(history, message) {
+  if (!FRUSTRATED_AT_BOT.test(message)) return null;
+  const lastShared = [...history].reverse().find((t) => t.role === "user" && !t.private && !FRUSTRATED_AT_BOT.test(t.text));
+  return (
+    "The person sounds frustrated or annoyed with you. Don't change the subject, don't restart with a generic \"how can I help?\", and don't get defensive. " +
+    "Reply in 1-2 short sentences: a plain, brief sorry (or a light, good-humoured line), then carry on with that same topic, adding something useful. Don't introduce yourself, don't ask how they feel, and don't end with a question." +
+    (lastShared ? ` They were last talking about: "${lastShared.text.slice(0, 300)}"` : "")
   );
 }
 

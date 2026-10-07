@@ -36,10 +36,16 @@ export function extractPatientDetails(text) {
   const s = String(text || "");
   const phoneMatch = s.match(/(?:\+?91[\s-]?)?0?\d{5}[\s-]?\d{5}/);
   const phone = phoneMatch ? normalizePhone(phoneMatch[0]) : null;
-  const nameMatch = s.match(/\b(?:name is|named|called|patient is|naam)\s+([\p{L}][\p{L}\p{M}.' -]{1,60}?)(?=\s+(?:and|number|phone|mobile|contact|ph|no)\b|\s*[,.;]|\s*\d|$)/iu);
+  const nameMatch = s.match(/\b(?:name is|named|called|patient is|naam)\s+([\p{L}][\p{L}\p{M}.' -]{1,60}?)(?=\s+(?:and|number|phone|mobile|contact|ph|no|email|e-mail|mail)\b|\s*[,.;]|\s*\d|\s+\S+@|$)/iu);
   const name = nameMatch ? cleanPersonName(nameMatch[1]) : null;
-  return { name, phone };
+  const emailMatch = s.match(/[^\s@<>()[\],;:"]+@[^\s@<>()[\],;:"]+\.[a-z]{2,}/i);
+  const email = emailMatch ? normalizeEmail(emailMatch[0]) : null;
+  return { name, phone, email };
 }
+
+/** "meena.sharma@gmail.com" -> "m•••@gmail.com", for showing back in chat (dots,
+ * not asterisks, which would break the Markdown bold around it). */
+export const maskEmail = (email) => String(email).replace(/^(.)[^@]*(@.*)$/, "$1•••$2");
 
 // Replies that are clearly not a name ("yes" was being booked as one).
 const NOT_A_NAME = /^(?:yes|yeah|yep|no|nope|ok|okay|sure|fine|haan|ha|nahi|hi|hello|hey|thanks|thank you|please|done|correct|right|same|me|myself|mother|father|mom|dad|never mind|stop|cancel)$/i;

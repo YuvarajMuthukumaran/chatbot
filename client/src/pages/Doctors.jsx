@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchDoctors, fetchSpecialties } from "../lib/bookingApi.js";
 import { specialtyLabel } from "../lib/specialties.js";
@@ -8,6 +8,7 @@ import { specialtyLabel } from "../lib/specialties.js";
 const midSentence = (label) => (label === label.toUpperCase() ? label : label[0].toLowerCase() + label.slice(1));
 
 function DoctorCard({ doctor, index }) {
+  const navigate = useNavigate();
   const initial = doctor.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*(\([^)]*\)\s*)?/i, "").charAt(0);
   return (
     <motion.div
@@ -45,12 +46,14 @@ function DoctorCard({ doctor, index }) {
 
       {doctor.focus && <p className="line-clamp-2 text-sm text-slate-600">{doctor.focus}</p>}
 
-      <Link
-        to={`/doctors/${doctor._id}`}
-        className="mt-auto rounded-full bg-blue-700 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm shadow-blue-900/20 transition-colors hover:bg-blue-800"
+      {/* Booking happens in the chat, where the email is confirmed with a code. */}
+      <button
+        type="button"
+        onClick={() => navigate("/", { state: { autoSend: `Book an appointment with ${doctor.name}` } })}
+        className="mt-auto rounded-full bg-blue-700 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm shadow-blue-900/20 transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
       >
         Book Appointment
-      </Link>
+      </button>
     </motion.div>
   );
 }
