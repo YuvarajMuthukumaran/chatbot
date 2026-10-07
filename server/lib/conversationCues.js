@@ -87,6 +87,9 @@ export function repetitionNote(history) {
   if (TECHNIQUE.test(replies[replies.length - 1].text)) {
     notes.push("Your last reply already offered an exercise or technique. Don't offer any technique, breathing or grounding exercise in this reply. Just respond to what they said.");
   }
+  if (/\?\s*$/.test(replies[replies.length - 1].text)) {
+    notes.push("Your last reply ended with a question. Don't ask one in this reply: respond to what they shared and end on a statement (something you noticed, or reassurance), not a goodbye.");
+  }
   if (replies.some((t) => REFERRAL.test(t.text))) {
     notes.push("You've recently mentioned a specialist or professional help. Don't mention specialists, doctors, booking or professional help in this reply unless they ask.");
   }

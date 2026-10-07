@@ -926,13 +926,28 @@ export async function handleBookingTurn(session, message, ctx = {}) {
 
   if (!state.flow) {
     if (intent === "clarifyAppointments") return { handled: true, ...CLARIFY_APPOINTMENTS };
-    if (!intentFlow) return { handled: false };
-    state.flow = intentFlow;
+    if (!intentFlow && acceptsBookingOffer(session, message)) {
+      // "yes da" right after a doctor card or a booking suggestion.
+      state.flow = "book";
+      message = session.lastRecommendedDoctors?.length ? "book with either of them" : "book an appointment";
+    } else if (!intentFlow) return { handled: false };
+    else state.flow = intentFlow;
   }
 
   const turnCtx = { ...ctx, session };
   TURN_CTX.set(state, turnCtx);
   return { handled: true, ...(await FLOW_HANDLERS[state.flow](state, message, turnCtx)) };
+}
+
+// A short yes ("yes", "yes da", "ok pls", "haan", "book it", "make da").
+const AFFIRMATION =
+  /^\s*(?:yes|yess+|yeah|yep|ya+|yup|haa?n|ha|ji|(?:ok(?:ay)?|sure)[\s,]+(?:da|di|pls|please|plz|book|do it|go ahead)|do it|go ahead|confirm|book (?:it|him|her|that|da|pls|please|now)|make (?:it|da|one)|fix (?:it|da))(?:[\s,.!]+(?:da|di|pls|please|plz|ji|sure|book|it|go ahead|do it|yes|ok))*\s*[.!]*\s*$/i;
+const OFFERED_BOOKING = /\b(?:book|booking|appointment|arrange|connect you|schedule|see (?:a|the) doctor|specialist|psychiatrist)\b/i;
+
+function acceptsBookingOffer(session, message) {
+  if (!session || !AFFIRMATION.test(message)) return false;
+  const lastReply = [...(session.history || [])].reverse().find((t) => t.role === "model");
+  return !!lastReply && !lastReply.private && (OFFERED_BOOKING.test(lastReply.text) || (session.doctorsShownAtTurn != null && session.conversationTurns - session.doctorsShownAtTurn <= 1));
 }
 
 /** Drops any in-progress booking flow (e.g. on crisis language or "never mind"). */

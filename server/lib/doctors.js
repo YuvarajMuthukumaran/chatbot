@@ -278,6 +278,24 @@ export function getGeneralistDoctor() {
   return DOCTORS.filter((d) => d.name === "Dr. Anu Yadav");
 }
 
+// "give me the doc name n profile", "who is she", "male?" — a follow-up about
+// the doctors just suggested.
+const ABOUT_DOCTOR =
+  /\b(?:profile|details?|about (?:him|her|them|the doc\w*)|who (?:is|are) (?:s?he|they|the doc\w*|this)|doc\w*'?s? name|names?|experience|qualifications?|background|male|female|man|woman|lady|gents?|gender)\b/i;
+
+/**
+ * Facts about the doctors suggested in the last reply, when the person asks
+ * about them; otherwise undefined.
+ */
+export function buildDoctorFollowUpNote(message, doctors) {
+  if (!doctors?.length || !ABOUT_DOCTOR.test(message)) return undefined;
+  const lines = doctors.map((d) => `- ${d.name} (${d.role})${d.focus ? `: ${d.focus}` : ""}`).join("\n");
+  return `The person is asking about the doctors suggested earlier. What you know about them:
+${lines}
+
+Share the name, role and focus plainly and briefly. Every doctor's full profile and photo is on the Doctors page (the Doctors tab), and they can book by tapping Book or saying they'd like to book. You don't know doctors' gender, age or languages: if they ask for a male or female doctor, never promise to arrange one; say they can see every doctor with photos on the Doctors page and pick, or name the doctor they want to book.`;
+}
+
 export function buildDoctorContextNote(doctors) {
   const lines = doctors
     .map((d) => `- ${d.name} (${d.role})${d.focus ? `: ${d.focus}` : ""}`)

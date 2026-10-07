@@ -185,3 +185,12 @@ test("after crisis numbers are shared, the next reply is told not to repeat them
   assert.match(crisisFollowUpNote(history) || "", /Do NOT repeat/);
   assert.strictEqual(crisisFollowUpNote([{ role: "model", text: "That sounds hard." }]), null);
 });
+
+test("questions about suggested doctors get their details, never a gender promise", async () => {
+  const { buildDoctorFollowUpNote } = await import("../lib/doctors.js");
+  const docs = [{ name: "Dr. Anu Yadav", role: "Consultant Psychiatrist", focus: "Holistic treatment approach." }];
+  assert.match(buildDoctorFollowUpNote("give me the doc name n profile", docs) || "", /Anu Yadav/);
+  assert.match(buildDoctorFollowUpNote("male ?/", docs) || "", /never promise to arrange/);
+  assert.strictEqual(buildDoctorFollowUpNote("i feel sad", docs), undefined);
+  assert.strictEqual(buildDoctorFollowUpNote("profile", []), undefined);
+});

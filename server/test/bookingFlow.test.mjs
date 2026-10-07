@@ -405,3 +405,15 @@ test("a date given when asked for a doctor is kept, and the doctor is asked agai
   assert.match(r.reply, /works\. Who would you like to see on/);
   assert.ok(r.quickReplies.includes("Any doctor"));
 });
+
+test("a yes right after a booking suggestion starts booking", async () => {
+  for (const yes of ["yes da", "make da", "yes pls", "book it", "haan"]) {
+    const session = { history: [{ role: "user", text: "want to talk to a doc" }, { role: "model", text: "I can help you book an appointment with a specialist." }] };
+    const r = await handleBookingTurn(session, yes);
+    assert.equal(r.handled, true, yes);
+  }
+  const chat = { history: [{ role: "model", text: "That sounds really hard." }] };
+  assert.equal((await handleBookingTurn(chat, "yes")).handled, false, "a yes in normal chat isn't a booking");
+  const offered = { history: [{ role: "model", text: "You can book an appointment here." }] };
+  assert.equal((await handleBookingTurn(offered, "ok")).handled, false, "a bare ok is too vague");
+});

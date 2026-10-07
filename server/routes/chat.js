@@ -6,6 +6,7 @@ import {
   getDoctorsForSpecialties,
   getGeneralistDoctor,
   buildDoctorContextNote,
+  buildDoctorFollowUpNote,
   doctorHelpReason,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
@@ -25,6 +26,8 @@ const RECENT_BOOKING_MS = 30 * 60 * 1000;
 
 // Exchanges between doctor suggestions prompted by distress alone.
 const CONCERN_CARD_GAP = 4;
+// The exchange from which distress alone can bring up doctor suggestions.
+const FIRST_CONCERN_CARD_TURN = 3;
 
 // Extra rules when the chat runs inside the public website widget.
 const WEBSITE_NOTE = [
@@ -143,10 +146,12 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     // the stored history hits its cap.
     session.conversationTurns = (session.conversationTurns || 0) + 1;
     const helpReason = doctorHelpReason(message, recentUserTexts);
+    // Distress alone: listen for a couple of exchanges before suggesting
+    // anyone, then wait a few more between suggestions.
     const concernCooldown =
       helpReason === "concern" &&
-      session.lastConcernCardsAt != null &&
-      session.conversationTurns - session.lastConcernCardsAt < CONCERN_CARD_GAP;
+      (session.conversationTurns < FIRST_CONCERN_CARD_TURN ||
+        (session.lastConcernCardsAt != null && session.conversationTurns - session.lastConcernCardsAt < CONCERN_CARD_GAP));
     const wantsHelp = helpReason !== null && !concernCooldown;
     const matchedTags = wantsHelp ? matchSpecialties(`${recentContext} ${message}`) : [];
     let matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
@@ -159,7 +164,9 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     if (wantsHelp && !matchedDoctors.length && !justBooked) {
       matchedDoctors = getGeneralistDoctor();
     }
-    const doctorNote = matchedDoctors.length ? buildDoctorContextNote(matchedDoctors) : undefined;
+    const doctorNote = matchedDoctors.length
+      ? buildDoctorContextNote(matchedDoctors)
+      : buildDoctorFollowUpNote(message, session.lastRecommendedDoctors);
     // Practical questions (fees, rooms, location, admission, ambulance) get
     // the front desk's verified answers. Without them, the model would either
     // refuse or guess a price.
@@ -222,6 +229,7 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       // can resolve against whoever was actually just shown, instead of
       // requiring a name the booking flow has no way to already know.
       session.lastRecommendedDoctors = matchedDoctors;
+      session.doctorsShownAtTurn = session.conversationTurns;
       if (helpReason === "concern") session.lastConcernCardsAt = session.conversationTurns;
       send({ doctors: matchedDoctors.map((d) => ({ name: d.name, role: d.role, photo: d.photo || null })) });
     }
