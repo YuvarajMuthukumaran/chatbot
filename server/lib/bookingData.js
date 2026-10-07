@@ -40,8 +40,13 @@ export async function searchDoctors({ search, specialty, specialties, role, loca
   else if (specialties?.length) query.specialties = { $in: specialties.map(String) };
   if (role) query.role = { $regex: containsPattern(role), $options: "i" };
   if (location) query.location = { $regex: containsPattern(location), $options: "i" };
-  return db.collection("doctors").find(query).sort({ name: 1 }).toArray();
+  const doctors = await db.collection("doctors").find(query).sort({ name: 1 }).toArray();
+  // The clinic's CEO is listed first; everyone else alphabetically.
+  return [...doctors.filter(isPinned), ...doctors.filter((d) => !isPinned(d))];
 }
+
+const PINNED_FIRST = /\bgorav gupta\b/i;
+const isPinned = (doctor) => PINNED_FIRST.test(doctor.name || "");
 
 export async function listSpecialties() {
   const db = getDb();
