@@ -9,7 +9,7 @@ import {
   doctorHelpReason,
 } from "../lib/doctors.js";
 import { handleDeterministicTurn } from "../lib/turnRouter.js";
-import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote, repetitionNote, frustrationNote } from "../lib/conversationCues.js";
+import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote, repetitionNote, frustrationNote, crisisFollowUpNote } from "../lib/conversationCues.js";
 import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
 import { findMedicineCards } from "../lib/toolLinks.js";
 import { detectAssessmentOffer, OFFER_LABELS } from "../lib/assessments.js";
@@ -190,6 +190,7 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
         [
           greetingFollowUpNote(session.history, message),
           frustrationNote(session.history, message),
+          crisisFollowUpNote(session.history),
           romanScriptNote(message),
           offScopeNote(message),
           selfDiagnosisNote(message),

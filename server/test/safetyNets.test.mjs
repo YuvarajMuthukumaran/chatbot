@@ -175,3 +175,13 @@ test("frustration aimed at the bot keeps the thread instead of restarting", asyn
     assert.strictEqual(frustrationNote(history, m), null, m);
   }
 });
+
+test("after crisis numbers are shared, the next reply is told not to repeat them", async () => {
+  const { crisisFollowUpNote } = await import("../lib/conversationCues.js");
+  const { detectCrisis } = await import("../lib/crisisDetection.js");
+  assert.ok(detectCrisis("i dont want to live"));
+  assert.strictEqual(detectCrisis("i dont want to live in delhi"), null);
+  const history = [{ role: "user", text: "i dont want to live" }, { role: "model", text: "Are you safe right now? Call 112 or 14416." }];
+  assert.match(crisisFollowUpNote(history) || "", /Do NOT repeat/);
+  assert.strictEqual(crisisFollowUpNote([{ role: "model", text: "That sounds hard." }]), null);
+});

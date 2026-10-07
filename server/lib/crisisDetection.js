@@ -46,6 +46,10 @@ const CRISIS_PATTERNS = {
     /\b(?:took|take|taking|swallow(?:ed|ing)?)\s+(?:all|a bunch of|too many|a lot of|lots of|an entire bottle of|the whole bottle of)\s+(?:of\s+)?(?:my |the )?(?:pills|tablets|meds|medicines?|sleeping pills)\b/i,
     // "kms" is internet shorthand for "kill myself" — but not "5 kms away".
     /(?<!\d\s?)\bkms\b/i,
+    // "i dont want to live", "dont wanna live like this", "dnt feel like living"
+    // — but not "I don't want to live in Delhi" or "...live alone".
+    /\b(?:do ?n[o'’]?t|dnt|dont|no longer) (?:really )?(?:want|wanna|wan|feel like|wish) (?:to )?(?:live|living|be alive|be here anymore|exist)\b(?!\s+(?:in|with|at|near|there|on|by|abroad|together|alone|far|close|nearby|next)\b)/i,
+    /\b(?:tired|sick) of (?:living|being alive|life itself)\b|\bdone with (?:life|living)\b|\b(?:life|living) (?:is|isn'?t) (?:not )?worth (?:it|living)\b|\bwant to disappear forever\b/i,
   ],
   hi: [
     // Devanagari script

@@ -93,6 +93,23 @@ export function repetitionNote(history) {
   return notes.length ? notes.join(" ") : null;
 }
 
+/**
+ * After crisis numbers have been shared, the model tends to paste the same
+ * "Are you safe? Call 112…" block onto every following message, word for
+ * word. Returns a note to stay with the person instead; otherwise null.
+ * @param {Array<{role: string, text: string, private?: boolean}>} history
+ */
+export function crisisFollowUpNote(history) {
+  const replies = history.filter((t) => t.role === "model" && !t.private).slice(-4);
+  if (!replies.some((t) => /14416|\b112\b/.test(t.text))) return null;
+  return (
+    "Earlier in this conversation the person mentioned not wanting to live, and helpline numbers have already been shared. " +
+    "Do NOT repeat your earlier reply or paste the numbers again. Respond to exactly what they just said, warmly and in your own words, " +
+    "and stay with them: show you're still here and want to hear more. If you check on their safety, ask it differently and gently, once. " +
+    "Only repeat a number if they say they're in danger right now or ask for it."
+  );
+}
+
 // Frustration aimed at the bot: "aap pagal ho kya", "you're useless", "wtf".
 // Left alone, the model answers with a fresh "How can I support you?" as if
 // the conversation had restarted.
