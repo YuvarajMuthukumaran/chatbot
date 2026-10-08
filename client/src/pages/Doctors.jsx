@@ -7,8 +7,20 @@ import { specialtyLabel } from "../lib/specialties.js";
 // "for anxiety", but "for OCD" — acronyms keep their capitals.
 const midSentence = (label) => (label === label.toUpperCase() ? label : label[0].toLowerCase() + label.slice(1));
 
+// How a tag reads as a question ("Tell me about …") where its label alone
+// would be odd: "Tell me about Child & adolescent".
+const CONDITION_TOPIC = {
+  child_adolescent: "child and teen mental health",
+  geriatric_dementia: "dementia and memory problems in older adults",
+  rehabilitation: "rehabilitation for mental health and addiction",
+  relationship: "relationship problems",
+  sexual_disorder: "sexual health problems",
+};
+
 function DoctorCard({ doctor, index }) {
   const navigate = useNavigate();
+  const [showAll, setShowAll] = useState(false);
+  const [showFullFocus, setShowFullFocus] = useState(false);
   const initial = doctor.name.replace(/^(Dr\.|Ms\.|Mr\.)\s*(\([^)]*\)\s*)?/i, "").charAt(0);
   return (
     <motion.div
@@ -33,18 +45,45 @@ function DoctorCard({ doctor, index }) {
 
       {doctor.specialties?.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {doctor.specialties.slice(0, 4).map((s) => (
-            <span key={s} className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+          {/* Tapping a condition opens the chat, which explains it. */}
+          {(showAll ? doctor.specialties : doctor.specialties.slice(0, 4)).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => navigate("/", { state: { autoSend: `Tell me about ${CONDITION_TOPIC[s] || specialtyLabel(s)}` } })}
+              title={`Ask Tulasi about ${specialtyLabel(s)}`}
+              className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
               {specialtyLabel(s)}
-            </span>
+            </button>
           ))}
-          {doctor.specialties.length > 4 && (
-            <span className="rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-500">+{doctor.specialties.length - 4} more</span>
+          {doctor.specialties.length > 4 && !showAll && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="rounded-full bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
+              +{doctor.specialties.length - 4} more
+            </button>
           )}
         </div>
       )}
 
-      {doctor.focus && <p className="line-clamp-2 text-sm text-slate-600">{doctor.focus}</p>}
+      {doctor.focus && (
+        <div className="text-sm text-slate-600">
+          <p className={showFullFocus ? "" : "max-h-10 overflow-hidden"}>{doctor.focus}</p>
+          {/* Long enough to be cut off at two lines on a card. */}
+          {doctor.focus.length > 80 && (
+            <button
+              type="button"
+              onClick={() => setShowFullFocus((v) => !v)}
+              className="mt-0.5 text-xs font-semibold text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
+              {showFullFocus ? "Show less" : "Read more"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Booking happens in the chat, where the email is confirmed with a code. */}
       <button

@@ -399,7 +399,7 @@ export function detectAssessmentIntent(text) {
 // Wondering aloud rather than asking: "I don't know if it's depression or
 // I'm just weak", "maybe I have anxiety". These get a button to start the
 // screening under the reply, rather than a quiz out of nowhere.
-const WONDERING = /\b(?:if|whether|maybe|might|may be|not sure|don'?t know|dont know|wonder(?:ing)?|could be|probably|kya)\b/i;
+const WONDERING = /\b(?:if|whether|maybe|might|may be|not sure|don'?t know|dont know|wonder(?:ing)?|could be|probably|kya|tell me about|what is|what are|explain|signs of|symptoms of)\b/i;
 const OFFER_TOPICS = [
   ["depression", /\bdepress(?:ed|ion)\b/i],
   ["anxiety", /\banxiety\b|\banxiety disorder\b/i],
