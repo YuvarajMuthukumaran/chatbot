@@ -12,7 +12,7 @@ import { detectMood } from "./mood.js";
 import { startSession, getStoredSessionId, getStoredProfile, sendMessageStream, fetchCrisisResources, endSession } from "./api.js";
 import { storeCrisisResources } from "./crisisResources.js";
 import { readJson, writeJson, remove } from "./storage.js";
-import { TRANSCRIPT_KEY, toSaved, fromSaved, sameConversation } from "./transcript.js";
+import { TRANSCRIPT_KEY, toSaved, fromSaved, sameConversation, isExpired } from "./transcript.js";
 
 export const GREETING =
   "Hi, I'm Tulasi — a supportive companion from Tulasi Health Care. I'm here to listen and share " +
@@ -20,8 +20,18 @@ export const GREETING =
   "ever in immediate danger, please use the **Get Immediate Help** button. What's on your mind today?";
 
 const FAILED_REPLY = "I need a moment — please try again shortly.";
+const DROPPED_REPLY = "The connection dropped before I could finish. Please tap Retry.";
 
 const greetingMessage = () => ({ role: "model", text: GREETING, greeting: true });
+
+/** Forgets a conversation that has sat idle for 24 hours; true if it did. */
+function clearExpiredChat() {
+  const saved = readJson(TRANSCRIPT_KEY);
+  if (!isExpired(saved)) return false;
+  remove(TRANSCRIPT_KEY);
+  endSession(saved.sessionId);
+  return true;
+}
 
 function loadTranscript(sessionId) {
   return fromSaved(readJson(TRANSCRIPT_KEY), sessionId);
@@ -42,7 +52,10 @@ function restorableHistory(messages) {
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
-  const [sessionId, setSessionId] = useState(() => getStoredSessionId());
+  const [sessionId, setSessionId] = useState(() => {
+    clearExpiredChat();
+    return getStoredSessionId();
+  });
   const [messages, setMessages] = useState(() => loadTranscript(getStoredSessionId()) || [greetingMessage()]);
   const [streaming, setStreaming] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
@@ -140,6 +153,7 @@ export function ChatProvider({ children }) {
     };
     const finalizeMessage = () => {
       const failed = !!doneMeta?.error;
+      if (doneMeta?.incomplete) fullText = DROPPED_REPLY;
       setMessages((prev) => {
         const next = [...prev];
         next[next.length - 1] = {
@@ -309,6 +323,16 @@ export function ChatProvider({ children }) {
     setSessionId(null); // triggers a fresh session via the effect above
     await endSession(oldId);
   }, [sessionId, streaming]);
+
+  // A tab left open for a day: start afresh when the person comes back to it.
+  useEffect(() => {
+    const onReturn = () => {
+      if (document.visibilityState !== "visible" || streamingRef.current) return;
+      if (isExpired(readJson(TRANSCRIPT_KEY))) newChat();
+    };
+    document.addEventListener("visibilitychange", onReturn);
+    return () => document.removeEventListener("visibilitychange", onReturn);
+  }, [newChat]);
 
   const value = useMemo(
     () => ({ messages, sessionId, streaming, connectionError, lastFailedText, mood, send, retry, newChat }),

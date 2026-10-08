@@ -14,6 +14,7 @@ import { greetingFollowUpNote, romanScriptNote, offScopeNote, selfDiagnosisNote,
 import { findClinicTopics, buildClinicFactsNote } from "../lib/clinicKnowledge.js";
 import { findMedicineCards } from "../lib/toolLinks.js";
 import { detectAssessmentOffer, OFFER_LABELS } from "../lib/assessments.js";
+import { ADMISSION_CHIPS } from "../lib/admissionGuide.js";
 import { limiters, limitByIp } from "../lib/rateLimit.js";
 
 const router = Router();
@@ -171,7 +172,10 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     // the front desk's verified answers. Without them, the model would either
     // refuse or guess a price.
     const previousUserText = [...session.history].reverse().find((turn) => turn.role === "user" && !turn.private)?.text;
-    const clinicNote = buildClinicFactsNote(findClinicTopics(message, previousUserText));
+    const clinicTopics = findClinicTopics(message, previousUserText);
+    const clinicNote = buildClinicFactsNote(clinicTopics);
+    // Asking about admission: offer the guided next step under the reply.
+    const admissionChips = session.channel !== "website" && clinicTopics.some((t) => t.id === "admission");
     // Medicine cards. Not on the website widget, which has no guide pages.
     const tools = session.channel === "website" ? { medicines: [] } : findMedicineCards(message);
     // Wondering about a condition ("I don't know if it's depression"): a
@@ -237,6 +241,9 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     if (offer) {
       session.offeredAssessment = offer;
       send({ quickReplies: [OFFER_LABELS[offer]] });
+    } else if (admissionChips) {
+      session.admissionGuideOffered = true;
+      send({ quickReplies: ADMISSION_CHIPS });
     }
     finish();
   } catch (err) {

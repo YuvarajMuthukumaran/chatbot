@@ -3,7 +3,6 @@ import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } fro
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
-import TulasiMascot from "../components/TulasiMascot.jsx";
 import QuickReplies from "../components/QuickReplies.jsx";
 import { useChat } from "../lib/chatStore.jsx";
 
@@ -13,7 +12,7 @@ const MAX_MESSAGE_CHARS = 2000;
 
 // Shown under the greeting until the first message: a gentle way in, and a
 // hint that booking happens right here in the chat.
-const STARTERS = ["I've been feeling anxious lately", "I just need someone to talk to", "Book an appointment"];
+const STARTERS = ["I've been feeling anxious lately", "I just need someone to talk to", "Book an appointment", "Admission enquiry"];
 
 // Markdown -> plain text, for the screen-reader announcement.
 function plainText(markdown) {
@@ -21,7 +20,7 @@ function plainText(markdown) {
 }
 
 export default function Chat() {
-  const { messages, sessionId, streaming, connectionError, lastFailedText, mood, send, retry, newChat } = useChat();
+  const { messages, sessionId, streaming, connectionError, lastFailedText, send, retry, newChat } = useChat();
   const [input, setInput] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const bottomRef = useRef(null);
@@ -113,11 +112,6 @@ export default function Chat() {
     inputRef.current?.focus();
   };
 
-  // The mascot switches to "doctor mode" (stethoscope) whenever the latest
-  // reply is recommending specialists — reverts once the conversation moves
-  // past that. Name label stays "Tulasi"; only the character's look changes.
-  const lastModelMessage = [...messages].reverse().find((m) => m.role === "model" && !m.pending);
-  const showingDoctors = !!lastModelMessage?.doctors?.length;
 
   const onlyGreeting = messages.length === 1 && messages[0].greeting;
   const suggestions = !streaming && sessionId && (onlyGreeting ? STARTERS : !last?.pending && last?.quickReplies);
@@ -137,11 +131,10 @@ export default function Chat() {
         {/* pr-16 below lg: the round "Get Immediate Help" button is pinned over
             this corner on narrower screens, and must never be covered. */}
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 py-3 pl-4 pr-16 sm:py-4 sm:pl-5 lg:pr-5">
-          <TulasiMascot
-            mood={mood}
-            streaming={streaming}
-            doctorMode={showingDoctors}
-            className="h-11 w-11 shrink-0 sm:h-14 sm:w-14"
+          <img
+            src="/tulasi-logo.png"
+            alt="Tulasi Health Care"
+            className={`h-11 w-12 shrink-0 object-contain sm:h-14 sm:w-16 ${streaming ? "animate-pulse" : ""}`}
           />
           <div className="min-w-0 flex-1">
             <div className="font-semibold text-blue-900">Tulasi</div>

@@ -7,7 +7,7 @@
 // size cap (evicting the least recently created first), and each session
 // keeps a bounded tail of history — the model only ever sees the last
 // MAX_HISTORY_TURNS turns anyway.
-const IDLE_TTL_MS = (Number(process.env.SESSION_IDLE_TTL_HOURS) || 12) * 60 * 60 * 1000;
+const IDLE_TTL_MS = (Number(process.env.SESSION_IDLE_TTL_HOURS) || 24) * 60 * 60 * 1000;
 const MAX_SESSIONS = Number(process.env.MAX_SESSIONS) || 10_000;
 const MAX_STORED_TURNS = 200;
 

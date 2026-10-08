@@ -56,3 +56,11 @@ test("very long histories are trimmed to the newest messages", () => {
   assert.equal(saved.messages.length, MAX_SAVED_MESSAGES);
   assert.equal(saved.messages.at(-1).text, `m${MAX_SAVED_MESSAGES + 24}`);
 });
+
+test("a conversation idle for 24 hours expires", async () => {
+  const { isExpired, CHAT_EXPIRY_MS } = await import("../src/lib/transcript.js");
+  const now = Date.now();
+  assert.equal(isExpired({ savedAt: now - CHAT_EXPIRY_MS - 1 }, now), true);
+  assert.equal(isExpired({ savedAt: now - 60_000 }, now), false);
+  assert.equal(isExpired(null, now), false);
+});

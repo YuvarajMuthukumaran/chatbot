@@ -20,6 +20,15 @@ export const RECORDS_PLACEHOLDER =
 // question the server has already forgotten, so they're dropped on load.
 export const STALE_STEP_MS = 15 * 60 * 1000;
 
+// A conversation left untouched this long starts afresh: a shared phone
+// shouldn't greet the next person with yesterday's chat.
+export const CHAT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+/** True when a saved conversation has been idle past CHAT_EXPIRY_MS. */
+export function isExpired(saved, now = Date.now()) {
+  return !!saved && now - (saved.savedAt || 0) > CHAT_EXPIRY_MS;
+}
+
 /** The form a conversation is saved in: settled messages only, newest last. */
 export function toSaved(sessionId, messages, now = Date.now()) {
   return {

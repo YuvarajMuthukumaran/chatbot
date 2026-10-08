@@ -194,3 +194,23 @@ test("questions about suggested doctors get their details, never a gender promis
   assert.strictEqual(buildDoctorFollowUpNote("i feel sad", docs), undefined);
   assert.strictEqual(buildDoctorFollowUpNote("profile", []), undefined);
 });
+
+test("the admission guide asks whether a doctor advised it, then routes", async () => {
+  const { handleAdmissionGuideTurn } = await import("../lib/admissionGuide.js");
+  const session = {};
+  assert.equal(handleAdmissionGuideTurn(session, "A doctor advised admission").handled, false, "only after it's offered");
+  const start = handleAdmissionGuideTurn(session, "Admission enquiry");
+  assert.match(start.reply, /Has a doctor already advised admission/);
+  assert.match(handleAdmissionGuideTurn(session, "A doctor advised admission").reply, /Care Team.*8800000255/);
+  const notYet = handleAdmissionGuideTurn(session, "Haven't seen a doctor");
+  assert.ok(notYet.quickReplies.includes("Book a consultation"));
+  assert.equal(handleAdmissionGuideTurn(session, "my dad needs admission, he drinks a lot").handled, false, "typed sentences reach the model");
+});
+
+test("FAQ questions find the FAQ facts", async () => {
+  const { findClinicTopics } = await import("../lib/clinicKnowledge.js");
+  for (const q of ["do you do online consultation", "do you have a child psychiatrist", "what happens in the first consultation", "do you treat adhd"]) {
+    assert.ok(findClinicTopics(q).some((t) => t.id === "faq"), q);
+  }
+  assert.ok(!findClinicTopics("i feel sad today").some((t) => t.id === "faq"));
+});

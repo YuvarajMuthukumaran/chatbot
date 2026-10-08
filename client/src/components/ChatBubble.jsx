@@ -1,7 +1,11 @@
 import { motion } from "framer-motion";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import { Link } from "react-router-dom";
 import { normalizeMarkdown } from "../lib/markdown.js";
+import { linkPhoneNumbers, isCallLink } from "../lib/callLinks.js";
+
+// react-markdown drops tel: links by default; the Call buttons need them.
+const keepTelLinks = (url) => (isCallLink(url) ? url : defaultUrlTransform(url));
 import { ScreeningProgress, AssessmentCard, MedicineCard } from "./ChatCards.jsx";
 
 const markdownComponents = {
@@ -13,7 +17,16 @@ const markdownComponents = {
   // In-app links (e.g. "see everyone" -> /doctors?specialty=...) stay in
   // this tab — the conversation is kept, so coming back loses nothing.
   a: ({ children, href }) =>
-    href?.startsWith("/") ? (
+    isCallLink(href) ? (
+      <a
+        href={href}
+        title={href.slice(4)}
+        className="mx-0.5 my-0.5 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-blue-700 px-3 py-1 align-middle text-sm font-semibold text-white no-underline shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+      >
+        <span aria-hidden="true">📞</span>
+        {children}
+      </a>
+    ) : href?.startsWith("/") ? (
       <Link to={href} className="underline decoration-blue-400 underline-offset-2">
         {children}
       </Link>
@@ -55,7 +68,9 @@ export default function ChatBubble({ role, text, crisis, failed, doctors, progre
         ) : (
           <>
             {progress && <ScreeningProgress progress={progress} />}
-            <ReactMarkdown components={markdownComponents}>{normalizeMarkdown(text)}</ReactMarkdown>
+            <ReactMarkdown components={markdownComponents} urlTransform={keepTelLinks}>
+              {linkPhoneNumbers(normalizeMarkdown(text))}
+            </ReactMarkdown>
             {assessment && <AssessmentCard card={assessment} />}
             {medicines?.map((m) => (
               <MedicineCard key={m.slug} medicine={m} />

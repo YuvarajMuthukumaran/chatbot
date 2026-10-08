@@ -12,6 +12,7 @@ import { detectHmsIntent } from "./hmsIntent.js";
 import { detectBookingIntent } from "./bookingIntent.js";
 import { handleHmsTurn, abandonHmsCollection } from "./hmsFlow.js";
 import { handleBookingTurn, abandonBookingFlow } from "./bookingFlow.js";
+import { handleAdmissionGuideTurn } from "./admissionGuide.js";
 import { handleAssessmentTurn, abandonAssessment, assessmentActive, answersCurrentQuestion } from "./assessmentFlow.js";
 
 const region = process.env.CRISIS_REGION || "IN";
@@ -113,6 +114,12 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
   if (session.channel !== "website") {
     const assessmentResult = await handleAssessmentTurn(session, message);
     if (assessmentResult.handled) return guardAgainstLoops(session, { ...assessmentResult, functional: true });
+  }
+
+  // Admission enquiry chips ("A doctor advised admission", …).
+  if (session.channel !== "website") {
+    const admissionResult = handleAdmissionGuideTurn(session, message);
+    if (admissionResult.handled) return guardAgainstLoops(session, admissionResult);
   }
 
   const hmsResult = await handleHmsTurn(session, message, ctx);

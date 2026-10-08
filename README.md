@@ -137,7 +137,7 @@ response shapes).
   or family devices). Hospital records shown in chat are *not* saved — after
   a reload they appear as a short note, so nobody can read them later on the
   same device without passing the identity check. Server sessions still
-  expire after 12 idle hours; the saved copy restores their context.
+  expire after 24 idle hours, and the chat on the device clears itself after 24 hours without a message.
 - All user input used in database searches is escaped (a stray `(` used to
   crash the server).
 

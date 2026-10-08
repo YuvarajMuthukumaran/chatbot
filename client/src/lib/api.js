@@ -95,6 +95,7 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
     const decoder = new TextDecoder();
     let buffer = "";
     const meta = {};
+    let finished = false;
 
     while (true) {
       const { value, done } = await reader.read();
@@ -108,7 +109,10 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
         const line = evt.trim();
         if (!line.startsWith("data:")) continue;
         const payload = line.slice(5).trim();
-        if (payload === "[DONE]") continue;
+        if (payload === "[DONE]") {
+          finished = true;
+          continue;
+        }
         try {
           const parsed = JSON.parse(payload);
           if (parsed.crisis) meta.crisis = true;
@@ -127,6 +131,12 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
       }
     }
 
+    // The connection dropped before the server finished (a redeploy, a
+    // network blip): report it rather than leave half a sentence as the reply.
+    if (!finished) {
+      meta.error = true;
+      meta.incomplete = true;
+    }
     onDone(meta);
   } catch (err) {
     onError(err);

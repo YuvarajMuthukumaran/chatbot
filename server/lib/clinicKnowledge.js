@@ -23,9 +23,9 @@ export const CLINIC_PHONE = "+91 8800000255";
 // and Telugu script. (Non-Latin alternatives sit outside the \b groups: \b
 // only understands ASCII word characters.)
 const PRICE =
-  /\b(?:cost|costs|price|prices|pricing|charges?|fees?|rates?|tariff|how much|expensive|discounts?|concessions?|kitna|kitne|kitni|kharcha|paisa|paise|evvalavu|evlo|enta|entha)\b|कितना|कितने|कितनी|खर्च|फीस|शुल्क|कीमत|கட்டணம்|எவ்வளவு|விலை|ఎంత|ఫీజు|ఖర్చు/i;
+  /\b(?:cost|costs|price|prices|pricing|charges?|fees?|rates?|tariff|how much|expensive|cheap|cheaper|cheapest|affordable|budget|low[- ]cost|discounts?|concessions?|kitna|kitne|kitni|kharcha|paisa|paise|evvalavu|evlo|enta|entha)\b|कितना|कितने|कितनी|खर्च|फीस|शुल्क|कीमत|கட்டணம்|எவ்வளவு|விலை|ఎంత|ఫీజు|ఖర్చు/i;
 const ADMIT =
-  /\b(?:admit|admits|admitted|admitting|admission|inpatient|in-patient|ipd|rehab|rehabilitation|residential care|long[- ]term (?:care|stay)|bharti|bhartee|bharthi)\b|भर्ती|एडमिट|அட்மிட்|అడ్మిట్/i;
+  /\b(?:adm[ie]t+\w*|admis+ion|admition|inpatient|in-patient|ipd|rehab|rehabilitation|residential care|long[- ]term (?:care|stay)|bharti|bhartee|bharthi)\b|भर्ती|एडमिट|அட்மிட்|అడ్మిట్/i;
 const ROOM = /\b(?:single|double|triple)[- ]?(?:rooms?|sharing|occupancy|beds?)\b|\bsharing rooms?\b|\bper day\b|\bpackages?\b/i;
 const CONSULT =
   /\b(?:consult|consultation|opd|appointment|counsell?ing|counsell?or|therapist|therapy sessions?|psychologist|psychiatrist|doctor'?s? fees?|first visit|follow[- ]?up|registration)\b|परामर्श|काउंसलिंग/i;
@@ -40,11 +40,34 @@ const TRANSPORT =
 
 export const CLINIC_TOPICS = [
   {
+    id: "faq",
+    match: (t) =>
+      /\b(?:online|video|tele-?)\s*(?:consult\w*|sessions?|appointments?|therapy|call)\b|\bconsult\w* online\b|\bchild (?:psychiatrist|psychologist|specialist|doctor)s?\b|\b(?:adhd|autism|autistic|learning difficult\w*|developmental)\b|\bage groups?\b|\b(?:treat|see) (?:children|kids|teenagers|adults|elderly)\b|\bfirst (?:consultation|visit|appointment|session)\b|\bwhich (?:centre|center|branch|clinic)\b|\b(?:walk-?in|need an appointment|without (?:an )?appointment)\b/i.test(t),
+    facts: [
+      "Appointments are recommended so the person sees the right doctor at a time that suits them; they can book right here in this chat.",
+      "The first consultation is a chance to talk openly about what they or their loved one has been going through; the doctor takes time to understand the concerns and guides them on the right next steps.",
+      "Online consultations may be available depending on the doctor and the service needed; the Care Team can confirm what's available.",
+      "There are psychiatrists who specialise in children and adolescents, and support for ADHD, autism, learning difficulties, behavioural concerns and emotional challenges.",
+      "Tulasi Healthcare provides mental healthcare for children, adolescents, adults and families.",
+      "If they're unsure which centre suits them, the Care Team can help based on where they are and what they need.",
+    ],
+  },
+  {
+    id: "missed_dose",
+    match: (t) => /\b(?:miss(?:ed|ing)?|skip(?:ped)?|forg[oe]t(?:ten)?(?: to take)?|didn'?t take|did not take|haven'?t taken|ran out of)\b[^.?!]{0,25}\b(?:dose|doses|medicines?|medication|meds|tablets?|pills?|injection|capsules?|goli|dawai|dawa)\b/i.test(t),
+    facts: [
+      "If someone missed a dose, tell them clearly to contact Tulasi Health Care as soon as possible on 8800000255 (or the doctor who prescribed it) so the team can advise what to do.",
+      "Don't tell them to take a double dose or to skip the next one, and don't give any dosing advice yourself.",
+      "If they feel unwell, very drowsy, confused or have taken too much, that's urgent: 112.",
+      "Keep it short and calm. A reminder tip (alarm, pillbox) is fine after the contact advice, not instead of it.",
+    ],
+  },
+  {
     id: "privacy",
     match: (t) => /\b(?:privacy|confidential|who (?:can|will|else) (?:see|read)|(?:is|are) (?:this|my|these|our) (?:chats?|messages?|conversations?|data) (?:saved|stored|recorded|safe|secure|private)|(?:save|store|record|keep)s? (?:my|this|the|our) (?:chats?|messages?|conversations?|data))\b/i.test(t),
     facts: [
       "The conversation is saved on the person's own device (browser storage) so they can come back to it; \"New chat\" clears it.",
-      "On the server it is kept only in memory while they chat, and is deleted after about 12 idle hours. It isn't saved to the clinic's records, and clinic staff don't read these chats.",
+      "On the server it is kept only in memory while they chat, and is deleted after about 24 idle hours. After 24 hours without a message, the chat on their device also clears and starts fresh. It isn't saved to the clinic's records, and clinic staff don't read these chats.",
       "Replies are written by an AI model run by an outside AI service, which receives the messages to generate replies. Booking details (name, email, appointment) are saved by the clinic for the appointment.",
       "Say this plainly and briefly. Don't claim anything beyond these facts (no \"end-to-end encrypted\", no \"only your doctor sees it\").",
     ],
@@ -86,7 +109,8 @@ export const CLINIC_TOPICS = [
       "A hospital attendant, if needed, is about ₹800 per 12-hour shift. (VN30, VN90)",
       "Delhi (Chhatarpur/Mehrauli) long-term care: about ₹4,000/day shared and ₹7,000/day single. (VN25, VN30)",
       "Some health-insurance policies may reimburse, but many exclude mental health, so it isn't guaranteed. (VN21, VN42)",
-      "Staff describe the package as having no hidden charges beyond medicines and tests. No discount policy is listed here: don't say one exists or doesn't. Say the team can discuss it. (VN96)",
+      "Staff describe the package as having no hidden charges beyond medicines and tests. (VN96)",
+      "Never bring up discounts, concessions, subsidies, government schemes, insurance-based options or 'cheaper options to ask about', and never suggest they ask or negotiate for a lower price. If they want something cheaper, simply give the lower-priced options listed here (shared rooms, the Delhi centre) and leave it there.",
       "These are indicative figures from the front desk; the team confirms the exact amount.",
     ],
   },

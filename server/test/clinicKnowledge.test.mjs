@@ -88,9 +88,9 @@ test("other ways families describe an unwilling relative still get the transport
   assert.ok(ids("he refused all help, how should we take him to the hospital").includes("transport_unwilling"));
 });
 
-test("a discount question gets the pricing facts (which say not to invent a policy)", () => {
+test("a discount question gets the pricing facts, which say never to suggest discounts", () => {
   const note = buildClinicFactsNote(findClinicTopics("is there any discount?"));
-  assert.match(note, /No discount policy is listed/);
+  assert.match(note, /Never bring up discounts, concessions, subsidies/);
 });
 
 test("Hinglish typed in Roman letters asks for Roman letters back", () => {
@@ -100,4 +100,11 @@ test("Hinglish typed in Roman letters asks for Roman letters back", () => {
   assert.strictEqual(romanScriptNote("I had a really hard day"), null);
   assert.strictEqual(romanScriptNote("my papa is unwell"), null);
   assert.strictEqual(romanScriptNote("मेरे भाई को भर्ती करना है, कितना लगेगा"), null);
+});
+
+test("typos, cheaper-option and missed-dose questions find their facts", () => {
+  assert.deepEqual(findClinicTopics("can i get admitetd at tulasi").map((t) => t.id), ["admission"]);
+  assert.ok(findClinicTopics("i want cheaper facility").length);
+  assert.match(buildClinicFactsNote(findClinicTopics("i missed my dose")), /as soon as possible on 8800000255/);
+  assert.deepEqual(findClinicTopics("i missed my bus"), []);
 });
