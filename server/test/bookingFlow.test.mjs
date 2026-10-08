@@ -417,3 +417,14 @@ test("a yes right after a booking suggestion starts booking", async () => {
   const offered = { history: [{ role: "model", text: "You can book an appointment here." }] };
   assert.equal((await handleBookingTurn(offered, "ok")).handled, false, "a bare ok is too vague");
 });
+
+test("a greeting mid-booking gets a friendly reminder, not 'I didn't catch that'", async () => {
+  const session = { history: [] };
+  const list = await handleDeterministicTurn(session, "book an appointment for anxiety", {});
+  for (const hi of ["yo", "hi", "lol"]) {
+    const r = await handleDeterministicTurn(session, hi, {});
+    assert.match(r.reply, /We were in the middle of booking your appointment/, hi);
+    assert.deepEqual(r.quickReplies, list.quickReplies, "same buttons as before");
+  }
+  assert.equal(session.booking.flow, "book", "still booking");
+});

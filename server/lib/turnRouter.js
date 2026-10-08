@@ -8,6 +8,7 @@
 import { detectCrisis } from "./crisisDetection.js";
 import { buildCrisisReply } from "./crisisTemplate.js";
 import { classifyEscape } from "./conversationEscape.js";
+import { GREETING_ONLY } from "./conversationCues.js";
 import { detectHmsIntent } from "./hmsIntent.js";
 import { detectBookingIntent } from "./bookingIntent.js";
 import { handleHmsTurn, abandonHmsCollection } from "./hmsFlow.js";
@@ -37,6 +38,18 @@ function activeFlow(session) {
   if (session.hms?.collecting) return "hms";
   return null;
 }
+
+// What each flow was doing, for a friendly reminder after a mid-step "hi".
+const DOING = {
+  book: "booking your appointment",
+  cancel: "cancelling your appointment",
+  reschedule: "moving your appointment",
+  view: "finding your appointments",
+  hms: "looking up your records",
+  assessment: "the quick check-in questions",
+};
+// Short filler that isn't an answer to anything: "lol", "hmm", "ok?", "what".
+const SMALL_TALK = /^\s*(?:lol+|lmao|haha+|hmm+|hm+|huh|what\??|wait|oh+|ah+|hello\?+|u there\??|you there\??)\s*[!?.]*\s*$/i;
 
 function abandonFlows(session) {
   abandonBookingFlow(session);
@@ -85,6 +98,16 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
         handled: true,
         functional: true,
         reply: `${STOPPED[flow] || STOPPED.view} I'm here if there's anything else on your mind.`,
+      };
+    }
+    // "yo", "hi" mid-step: not an answer, so don't reply "I didn't catch
+    // that". Say hello, remind them where they were, keep the same buttons.
+    if (GREETING_ONLY.test(message) || SMALL_TALK.test(message)) {
+      return {
+        handled: true,
+        functional: true,
+        reply: `Hey! 👋 We were in the middle of ${DOING[flow] || "something"}. Pick up where we left off, or say **never mind** to stop.`,
+        quickReplies: session.lastFlowPrompt?.quickReplies,
       };
     }
     // Switching between the two systems mid-flow ("actually, book an
@@ -152,7 +175,7 @@ function guardAgainstLoops(session, result) {
   const last = session.lastFlowPrompt;
   const count = last?.text === result.reply ? last.count + 1 : 1;
   if (count < MAX_SAME_PROMPT) {
-    session.lastFlowPrompt = { text: result.reply, count };
+    session.lastFlowPrompt = { text: result.reply, count, quickReplies: result.quickReplies };
     return result;
   }
   session.lastFlowPrompt = null;

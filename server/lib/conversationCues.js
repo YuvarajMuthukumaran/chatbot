@@ -3,7 +3,7 @@ import { ASKING, normalizeForIntent } from "./assessments.js";
 
 // Just a greeting, nothing else: "sup", "hey there", "hiii", "what's up?",
 // "namaste" — in any case, with or without punctuation.
-const GREETING_ONLY =
+export const GREETING_ONLY =
   /^\s*(?:hi+|hey+|hello+|hel+o+|yo+|sup+|wa+s+u+p+|what'?s\s*up|whats\s*up|heya|hiya|namaste|vanakkam|namaskaram)(?:\s+(?:there|again|tulasi))?\s*[!.?]*\s*$/i;
 
 // Everyday words that mark a message as Hindi, Tamil, or Telugu typed in
