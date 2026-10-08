@@ -4,7 +4,8 @@
 
 const NUMBERS = [
   // Tulasi Health Care: "8800000255", "+91 8800000255", "+91-88000 00255".
-  { source: String.raw`(?:\+?91[\s-]?)?(?:8800[\s-]?000[\s-]?255|88000[\s-]?00255)`, label: "Call Tulasi Health Care", tel: "+918800000255" },
+  // Any spacing: "880 000 0255", "88000-00255".
+  { source: String.raw`(?:\+?91[\s-]?)?8[\s-]?8[\s-]?0[\s-]?0[\s-]?0[\s-]?0[\s-]?0[\s-]?2[\s-]?5[\s-]?5(?!\d)`, label: "Call Tulasi Health Care", tel: "+918800000255" },
   // Tele-MANAS, the national mental-health helpline (also 1-800-891-4416).
   { source: String.raw`1[\s-]?800[\s-]?891[\s-]?4416|(?<![\d₹,.])14416(?![\d,])`, label: "Call Tele-MANAS", tel: "14416" },
   // Emergency and the women's helpline — but not prices or counts ("₹112", "181 days").
