@@ -83,6 +83,9 @@ router.post(
     const email = patientEmail ? normalizeEmail(patientEmail) : null;
     const phone = !email && patientPhone ? normalizePhone(String(patientPhone)) : null;
     if (patientEmail && !email) return res.status(400).json({ error: "Please enter a valid e-mail address." });
+    // A website booking also carries a mobile number to reach the patient on. The code still goes only to the e-mail address.
+    const contactPhone = email && patientPhone ? normalizePhone(String(patientPhone)) : null;
+    if (email && patientPhone && !contactPhone) return res.status(400).json({ error: "Please enter a valid 10-digit mobile number." });
     if (!email && !phone) return res.status(400).json({ error: "patientPhone must be a 10-digit mobile number" });
     const name = cleanPersonName(String(patientName));
     if (!name) return res.status(400).json({ error: "Please enter the patient's full name." });
@@ -107,7 +110,7 @@ router.post(
         doctorId: String(doctor._id),
         doctorName: doctor.name,
         patientName: name,
-        ...(email ? { patientEmail: email } : { patientPhone: phone }),
+        ...(email ? { patientEmail: email, ...(contactPhone ? { contactPhone } : {}) } : { patientPhone: phone }),
         date,
         time,
       });

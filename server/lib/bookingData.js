@@ -79,7 +79,7 @@ export async function getAvailableSlots(doctorId, date) {
   return availableSlots(rows.map((r) => r.time), { date, doctorName: doctor?.name });
 }
 
-export async function bookAppointment({ doctorId, doctorName, patientName, patientPhone, patientEmail, date, time }) {
+export async function bookAppointment({ doctorId, doctorName, patientName, patientPhone, patientEmail, contactPhone, date, time }) {
   const db = getDb();
   if (!db) throw new Error("Database not connected");
 
@@ -93,7 +93,7 @@ export async function bookAppointment({ doctorId, doctorName, patientName, patie
         { upsert: true }
       );
 
-  const appointment = { doctorId, doctorName, patientName, ...(patientPhone ? { patientPhone } : {}), ...(patientEmail ? { patientEmail } : {}), date, time, status: "booked", createdAt: new Date() };
+  const appointment = { doctorId, doctorName, patientName, ...(patientPhone ? { patientPhone } : {}), ...(patientEmail ? { patientEmail } : {}), ...(contactPhone ? { contactPhone } : {}), date, time, status: "booked", createdAt: new Date() };
   const result = await db.collection("appointments").insertOne(appointment);
   return { ...appointment, _id: result.insertedId };
 }
