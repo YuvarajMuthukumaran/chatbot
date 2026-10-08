@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { SYSTEM_INSTRUCTION } from "./systemInstruction.js";
 
-let client = null;
+let clients = null;
 
 // Diagnostic only, for the same reason db.js exposes getLastDbError(): the
 // generic user-facing fallback text is deliberately vague, but that leaves
@@ -34,15 +34,17 @@ export function getApiKey() {
 // let the model chain below try the next model.
 const REQUEST_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 30000;
 
-function getClient() {
-  if (!client) {
-    const apiKey = getApiKey();
-    if (!apiKey) {
+// GROQ_API_KEY first; GROQ_API_KEY_2 (optional) takes over for a model
+// once the first key's limits for it are used up.
+function getClients() {
+  if (!clients) {
+    const keys = [getApiKey(), process.env.GROQ_API_KEY_2?.trim()].filter(Boolean);
+    if (!keys.length) {
       throw new Error("GROQ_API_KEY is not set. Add it to server/.env (or the host's environment settings).");
     }
-    client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1", timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+    clients = keys.map((apiKey) => new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1", timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 }));
   }
-  return client;
+  return clients;
 }
 
 // Primary model first, then fallbacks to try (in order) if the primary is
@@ -79,8 +81,10 @@ export function retryAfterMs(err) {
 
 // Worth trying the next model for: rate limits, overload, and requests that
 // never got a response at all (timeouts, connection resets).
+// 401/403 too: with two keys, a revoked or mistyped one shouldn't take the
+// chat down while the other still works.
 function isRetryable(status) {
-  return status === undefined || status === 429 || status === 502 || status === 503 || status === 504;
+  return status === undefined || status === 401 || status === 403 || status === 429 || status === 502 || status === 503 || status === 504;
 }
 
 const CONNECTION_TROUBLE =
@@ -144,7 +148,7 @@ function getErrorStatus(err) {
 export async function streamReply({ history, message, onChunk, abortSignal, extraContext, turnNote }) {
   let ai;
   try {
-    ai = getClient();
+    ai = getClients();
   } catch (err) {
     // A missing key is a deployment misconfiguration, not a reason to take
     // the process down (which would also wipe every in-memory session) —
@@ -158,15 +162,17 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
   let lastErr = null;
   let waitedMs = 0;
 
-  for (let i = 0; i < MODEL_CHAIN.length; i++) {
-    const model = MODEL_CHAIN[i];
-    const isLastModel = i === MODEL_CHAIN.length - 1;
+  // Best model on every key before dropping to a smaller model.
+  const attempts = MODEL_CHAIN.flatMap((model) => ai.map((api, key) => ({ model, api, key })));
+  for (let i = 0; i < attempts.length; i++) {
+    const { model, api, key } = attempts[i];
+    const isLastModel = i === attempts.length - 1;
 
     if (abortSignal?.aborted) return { ok: false, aborted: true, text: "" };
 
     let full = "";
     try {
-      const stream = await ai.chat.completions.create(
+      const stream = await api.chat.completions.create(
         { model, messages, stream: true, temperature: TEMPERATURE, max_completion_tokens: MAX_COMPLETION_TOKENS },
         { signal: abortSignal }
       );
@@ -202,7 +208,8 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
       }
 
       if (isRetryable(status) && !isLastModel) {
-        console.warn(`Model "${model}" unavailable (${status}), falling back to "${MODEL_CHAIN[i + 1]}"`);
+        const next = attempts[i + 1];
+        console.warn(`Model "${model}" (key ${key + 1}) unavailable (${status}), trying "${next.model}" (key ${next.key + 1})`);
         continue;
       }
 
