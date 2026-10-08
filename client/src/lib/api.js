@@ -142,3 +142,19 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
     onError(err);
   }
 }
+
+/** Turns a voice recording into text (never stored). Throws with a readable message. */
+export async function transcribeAudio(blob) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/transcribe`, {
+      method: "POST",
+      headers: { "Content-Type": blob.type || "audio/webm" },
+      body: blob,
+    });
+  } catch {
+    throw new Error("I couldn't connect just now. Please try again, or type instead.");
+  }
+  if (!res.ok) throw await errorFrom(res, "I couldn't make that out. Please try again, or type instead.");
+  return (await res.json()).text || "";
+}

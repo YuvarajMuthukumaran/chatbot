@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ChatBubble from "../components/ChatBubble.jsx";
 import TypingIndicator from "../components/TypingIndicator.jsx";
 import QuickReplies from "../components/QuickReplies.jsx";
+import VoiceButton, { voiceSupported } from "../components/VoiceButton.jsx";
 import { useChat } from "../lib/chatStore.jsx";
 
 // Server-side limit (routes/chat.js) — enforced here too so nobody types a
@@ -22,6 +23,8 @@ function plainText(markdown) {
 export default function Chat() {
   const { messages, sessionId, streaming, connectionError, lastFailedText, send, retry, newChat } = useChat();
   const [input, setInput] = useState("");
+  const [voiceError, setVoiceError] = useState(null);
+  const [canUseVoice] = useState(voiceSupported);
   const [announcement, setAnnouncement] = useState("");
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -200,6 +203,11 @@ export default function Chat() {
           </div>
         )}
 
+        {voiceError && (
+          <p role="status" className="shrink-0 px-4 pt-2 text-xs text-slate-500">
+            {voiceError}
+          </p>
+        )}
         <form
           onSubmit={handleSubmit}
           className="flex shrink-0 items-end gap-2 border-t border-slate-100 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-4"
@@ -215,10 +223,20 @@ export default function Chat() {
             onKeyDown={handleKeyDown}
             rows={1}
             maxLength={MAX_MESSAGE_CHARS}
-            placeholder={sessionId ? "Share what's on your mind…" : "Getting things ready…"}
+            placeholder={sessionId ? "What's on your mind…" : "Getting ready…"}
             disabled={!sessionId}
             className="min-w-0 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-[0.95em]"
           />
+          {canUseVoice && (
+            <VoiceButton
+              disabled={!sessionId || streaming}
+              onError={setVoiceError}
+              onText={(text) => {
+                setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text).slice(0, MAX_MESSAGE_CHARS));
+                inputRef.current?.focus();
+              }}
+            />
+          )}
           <motion.button
             type="submit"
             disabled={!input.trim() || streaming || !sessionId}

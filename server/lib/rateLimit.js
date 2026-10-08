@@ -41,6 +41,8 @@ export const limiters = {
   // (so nobody can flood someone else's inbox).
   emailCodePerIp: createRateLimiter({ windowMs: 10 * MINUTE, max: 10 }),
   emailCodePerAddress: createRateLimiter({ windowMs: 10 * MINUTE, max: 3 }),
+  // Voice notes: Whisper allows 20 a minute for the whole app.
+  transcribe: createRateLimiter({ windowMs: MINUTE, max: 6 }),
 };
 
 export const TOO_MANY_REQUESTS = "Too many requests — please wait a few minutes and try again.";
