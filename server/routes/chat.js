@@ -153,7 +153,15 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       helpReason === "concern" &&
       (session.conversationTurns < FIRST_CONCERN_CARD_TURN ||
         (session.lastConcernCardsAt != null && session.conversationTurns - session.lastConcernCardsAt < CONCERN_CARD_GAP));
-    const wantsHelp = helpReason !== null && !concernCooldown;
+    // Practical questions (fees, rooms, location, admission, ambulance) get
+    // the front desk's verified answers. Without them, the model would either
+    // refuse or guess a price.
+    const previousUserText = [...session.history].reverse().find((turn) => turn.role === "user" && !turn.private)?.text;
+    const clinicTopics = findClinicTopics(message, previousUserText);
+    // "What does admission cost?" is a practical question, not a request for
+    // a doctor: no cards under it unless they name one.
+    const practicalOnly = clinicTopics.length > 0 && !/\b(?:doctors?|psychiatrists?|psychologists?|specialists?|therapists?|counsell?ors?)\b/i.test(message);
+    const wantsHelp = helpReason !== null && !concernCooldown && !practicalOnly;
     const matchedTags = wantsHelp ? matchSpecialties(`${recentContext} ${message}`) : [];
     let matchedDoctors = getDoctorsForSpecialties(matchedTags, 2);
     // Someone is clearly asking for help, but the concern named (e.g.
@@ -168,11 +176,6 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
     const doctorNote = matchedDoctors.length
       ? buildDoctorContextNote(matchedDoctors)
       : buildDoctorFollowUpNote(message, session.lastRecommendedDoctors);
-    // Practical questions (fees, rooms, location, admission, ambulance) get
-    // the front desk's verified answers. Without them, the model would either
-    // refuse or guess a price.
-    const previousUserText = [...session.history].reverse().find((turn) => turn.role === "user" && !turn.private)?.text;
-    const clinicTopics = findClinicTopics(message, previousUserText);
     const clinicNote = buildClinicFactsNote(clinicTopics);
     // Asking about admission: offer the guided next step under the reply.
     const admissionChips = session.channel !== "website" && clinicTopics.some((t) => t.id === "admission");

@@ -84,7 +84,10 @@ export function repetitionNote(history) {
   const replies = history.filter((t) => t.role === "model" && !t.private).slice(-3);
   if (!replies.length) return null;
   const notes = [];
-  if (TECHNIQUE.test(replies[replies.length - 1].text)) {
+  const allReplies = history.filter((t) => t.role === "model" && !t.private);
+  if (allReplies.length < 3) {
+    notes.push("It's early in the conversation. Don't offer any exercise, technique, breathing or grounding tip yet unless they ask for one: listen and understand first.");
+  } else if (TECHNIQUE.test(replies[replies.length - 1].text)) {
     notes.push("Your last reply already offered an exercise or technique. Don't offer any technique, breathing or grounding exercise in this reply. Just respond to what they said.");
   }
   if (/\?\s*$/.test(replies[replies.length - 1].text)) {
@@ -131,7 +134,10 @@ export function frustrationNote(history, message) {
   return (
     "The person sounds frustrated or annoyed with you. Don't change the subject, don't restart with a generic \"how can I help?\", and don't get defensive. " +
     "Reply in 1-2 short sentences: a plain, brief sorry (or a light, good-humoured line), then carry on with that same topic, adding something useful. Don't introduce yourself, don't ask how they feel, and don't end with a question." +
-    (lastShared ? ` They were last talking about: "${lastShared.text.slice(0, 300)}"` : "")
+    (lastShared
+      ? ` They were last talking about: "${lastShared.text.slice(0, 300)}"`
+      : " There's no earlier topic: own it lightly and say plainly what you can help with (listening, booking, questions about the clinic) in a few words.") +
+    " Never answer with just the clinic's phone number: that reads as a brush-off."
   );
 }
 

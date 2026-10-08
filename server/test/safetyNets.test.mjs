@@ -157,9 +157,12 @@ test("code/homework requests get a decline reminder, venting about them doesn't"
 test("a technique or specialist mention isn't repeated reply after reply", async () => {
   const { repetitionNote } = await import("../lib/conversationCues.js");
   const turn = (role, text) => ({ role, text });
-  assert.strictEqual(repetitionNote([turn("user", "hi"), turn("model", "Hey, good to see you.")]), null);
-  assert.match(repetitionNote([turn("model", "Try this: breathe in for 4, out for 4.")]), /Don't offer any technique/);
-  assert.match(repetitionNote([turn("model", "Take a deep breath or a quick stretch.")]), /Don't offer any technique/);
+  const earlier = [turn("model", "Hey."), turn("model", "That's a lot.")];
+  // The first few replies: no exercises yet at all.
+  assert.match(repetitionNote([turn("user", "hi"), turn("model", "Hey, good to see you.")]), /early in the conversation/);
+  assert.strictEqual(repetitionNote([...earlier, turn("model", "That sounds exhausting.")]), null);
+  assert.match(repetitionNote([...earlier, turn("model", "Try this: breathe in for 4, out for 4.")]), /Don't offer any technique/);
+  assert.match(repetitionNote([...earlier, turn("model", "Take a deep breath or a quick stretch.")]), /Don't offer any technique/);
   assert.match(repetitionNote([turn("model", "One of our specialists could help."), turn("model", "That's hard."), turn("model", "Makes sense.")]), /Don't mention specialists/);
   // Private booking/records turns don't count.
   assert.strictEqual(repetitionNote([{ role: "model", text: "Book an appointment with a psychiatrist", private: true }]), null);
