@@ -41,7 +41,7 @@ export function handleAdmissionGuideTurn(session, message) {
 
   if (same(message, ADVISED)) {
     return say(
-      `Thank you. Since a doctor has advised admission, our Care Team can guide you through the process, rooms and costs, and answer every question: ${CLINIC_NUMBER}. Families are also welcome to visit the Gurugram hospital first and see it for themselves.`
+      `Thank you. Since a doctor has advised admission, our Care Team can guide you through the process, rooms and costs, and answer every question: ${CLINIC_NUMBER}. Inpatient admission is at our Gurugram hospital, and we also have a residential centre at Chhatarpur (Delhi) and OPD clinics at Hauz Khas and Noida. Families are welcome to visit the Gurugram hospital first and see it for themselves.`
     );
   }
   if (same(message, NOT_ADVISED) || same(message, NO_DOCTOR)) {

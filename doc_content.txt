@@ -1,0 +1,63 @@
+TULSI HEALTH CARE
+HMS ↔ App API Integration — API Documentation
+API-1 — Patient Registration / Patient Match
+Purpose
+Create a new patient in HMS or find an existing patient using Name + Middle Name + Last Name + DOB + Mobile.
+API Link
+https://tulasihms.in/hms/api/patientdata
+Method
+POST
+Request Body — Fields to be filled
+{    "name": "RAHUL",    "middle_name": "",    "l_name": "BAHEL",    "dob": "1999-06-22",    "phone": "8800100247",    "address": "Jaipur",    "branch_id": "1"}
+Output — JSON
+{    "status": "ok",    "statusCode": "yes",    "error": "",    "message": "Existing patient found",    "data": {        "patient_id": "254",        "uhid": "2024RG247",        "name": "RAHUL",        "middle_name": "",        "l_name": "BAHEL",        "dob": "1999-06-22",        "phone": "8800100247"    }}
+API-2 — Admission Status Push
+Purpose
+Retrieve the patient's IPD admission information, including doctor, ward, admission status, complaint and visit date.
+API Link
+https://tulasihms.in/hms/api/admissionStatusPush
+Method
+POST
+Request Body — Fields to be filled
+{    "uhid": "2026-27RG7930"}
+Output — JSON
+{    "status": "ok",    "statusCode": "200",    "error": "",    "message": "Patient admission data found",    "data": {        "uhid": "2026-27RG7930",        "patient_id": "9665",        "name": "RAHUL YADAV",        "middle_name": "",        "l_name": "",        "dob": "2007-07-11",        "phone": "8824485239",        "address": "Jaipur",        "care_team": "Dr. Example",        "admitting_complaint": "Fever",        "ward": "General Ward",        "admission_status": "Admitted",        "visit_date": "2026-09-23 10:30:00"    }}
+API-3 — Discharge Summary Push
+Purpose
+Send/retrieve the patient's discharge summary and discharge-related information when an IPD patient is discharged.
+API Link
+https://tulasihms.in/hms/api/dischargeSummaryPush
+Method
+POST
+Request Body — Fields to be filled
+{    "uhid": "2026-27RG7930"}
+Output — JSON
+{    "status": "ok",    "statusCode": "200",    "error": "",    "message": "Discharge summary found",    "data": {        "uhid": "2026-27RG7930",        "patient_id": "9665",        "name": "RAHUL YADAV",        "admission_date": "2026-09-20 10:30:00",        "discharge_date": "2026-09-23 15:30:00",        "admission_status": "Discharged",        "care_team": "Dr. Example",        "diagnosis": "Fever",        "discharge_summary": "Patient treated and discharged in stable condition."    }}
+API-4 — Patient Profile + Visit History Sync
+Purpose
+Return the patient's profile plus the latest five visits, exact visit date/time, visit type, token, doctor and prescription history.
+API Link
+https://tulasihms.in/hms/api/patientProfileVisitSync
+Method
+POST
+Request Body — Fields to be filled
+{    "uhid": "2024RG247"}
+Output — JSON
+{    "status": "ok",    "statusCode": "200",    "error": "",    "message": "Patient profile and visit history found",    "data": {        "uhid": "2024RG247",        "patient_id": "254",        "name": "RAHUL",        "middle_name": "",        "l_name": "BAHEL",        "mobile": "8800100247",        "address": "E-1/4 MODEL TOWN -2ND",        "last_visit_date": "2026-03-14",        "last_visit_time": "15:33:52",        "last_visit_type": "OPD",        "last_5_visit_dates": [            {                "visit_id": "18441",                "visit_date": "2026-03-14",                "visit_time": "15:33:52",                "token_number": "4",                "visit_status": false,                "category_id": "4",                "visit_type": "OPD",                "specialist_id": "3",                "specialist_name": "RATNARAKSHIT INGOLE",                "specialist_id_2": "0",                "specialist_name_2": ""            },            {                "visit_id": "17089",                "visit_date": "2026-01-30",                "visit_time": "16:22:19",                "token_number": "1",                "visit_status": false,                "category_id": "5",                "visit_type": "IPD",                "specialist_id": "3",                "specialist_name": "RATNARAKSHIT INGOLE",                "specialist_id_2": "0",                "specialist_name_2": ""            }        ],        "last_5_prescriptions": [            {                "prescription_id": "12360",                "patient_id": "254",                "uhid": "2024RG247",                "date": "2026-03-14 15:55:45",                "visit_date": "2026-03-14",                "visit_time": "15:55:45",                "complaints": "",                "diagnosis": "",                "provisional_diagnosis": "",                "disease": "",                "specialist_id": "3",                "specialist_name": "RATNARAKSHIT INGOLE",                "specialist_id_2": "0",                "advice": "",                "treatment": ""            }        ],        "care_team": "ICHPREET SINGH",        "nr_name": "",        "visit_date": "2026-03-14",        "visit_time": "15:33:52",        "visit_type": "OPD"    }}
+API-5 — Prescription Sync
+Purpose
+Return the patient's latest prescriptions for the supplied UHID.
+API Link
+https://tulasihms.in/hms/api/prescriptionSync
+Method
+POST
+Request Body — Fields to be filled
+{    "uhid": "2026-27RG7921"}
+Output — JSON
+{    "status": "ok",    "statusCode": "200",    "error": "",    "message": "Prescription data found",    "data": {        "uhid": "2026-27RG7921",        "patient_id": "9656",        "prescriptions": [            {                "prescription_id": "12360",                "patient_id": "9656",                "uhid": "2026-27RG7921",                "date": "2026-09-23 15:55:45",                "visit_date": "2026-09-23",                "visit_time": "15:55:45",                "complaints": "Fever",                "diagnosis": "Viral Fever",                "provisional_diagnosis": "",                "disease": "",                "specialist_id": "3",                "specialist_name": "RATNARAKSHIT INGOLE",                "specialist_id_2": "0",                "advice": "Take adequate rest",                "treatment": "Paracetamol"            }        ]    }}
+API Summary
+API-1: Patient Registration / Patient Match — /hms/Api/patientdata
+API-2: Admission Status Push — /hms/Api/admissionStatusPush
+API-3: Discharge Summary Push — /hms/Api/dischargeSummaryPush
+API-4: Patient Profile + Visit History Sync — /hms/Api/patientProfileVisitSync
+API-5: Prescription Sync — /hms/Api/prescriptionSync

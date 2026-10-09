@@ -108,3 +108,65 @@ test("typos, cheaper-option and missed-dose questions find their facts", () => {
   assert.match(buildClinicFactsNote(findClinicTopics("i missed my dose")), /as soon as possible on 8800000255/);
   assert.deepEqual(findClinicTopics("i missed my bus"), []);
 });
+
+test("a facilities question gets verified facts for every centre, not just Gurugram", () => {
+  // The exact message that used to match no topic, so the model improvised.
+  const topics = findClinicTopics("I need to know what facilities are available");
+  assert.deepStrictEqual(topics.map((t) => t.id), ["facilities"]);
+  const note = buildClinicFactsNote(topics);
+  for (const place of ["Gurugram", "Chhatarpur", "Hauz Khas", "Noida"]) assert.match(note, new RegExp(place), place);
+  assert.match(note, /MUST name all of them/);
+  // The model is told not to add amenities that aren't in the verified list.
+  assert.match(note, /Never add anything not listed here/);
+  assert.match(note, /no ambulance of its own/);
+  assert.doesNotMatch(note, /VN\d/);
+});
+
+test("facilities questions in other phrasings and languages match", () => {
+  for (const message of [
+    "what amenities do you have",
+    "facilities kya hai",
+    "hospital mein kya suvidha hai",
+    "अस्पताल में क्या सुविधाएं हैं",
+    "என்னென்ன வசதிகள் உள்ளன",
+    "ఏ సౌకర్యాలు ఉన్నాయి",
+  ]) {
+    assert.ok(ids(message).includes("facilities"), message);
+  }
+});
+
+test("complaining that only one centre was mentioned brings back the full location list", () => {
+  assert.ok(ids("Why you told only about gurugram").includes("locations"));
+  assert.ok(ids("do you have any other branches?").includes("locations"));
+  assert.ok(ids("is there another centre").includes("locations"));
+  assert.match(buildClinicFactsNote(findClinicTopics("do you have any other branches?")), /Noida/);
+});
+
+test("a short follow-up after a facilities question keeps the facilities topic", () => {
+  assert.deepStrictEqual(ids("and in delhi?", "what facilities are available"), ["locations"]);
+  assert.deepStrictEqual(ids("what about for women?", "what facilities are available"), ["facilities"]);
+});
+
+test("general hospital questions always cover every centre, never only Gurugram", () => {
+  for (const message of [
+    "I need to know what facilities are available",
+    "where is your hospital",
+    "do you have any other branches?",
+    "do you treat alcohol addiction",
+  ]) {
+    const note = buildClinicFactsNote(findClinicTopics(message));
+    assert.match(note, /MUST name all of them/, message);
+    for (const place of ["Gurugram", "Chhatarpur", "Hauz Khas", "Noida"]) assert.match(note, new RegExp(place), `${message} -> ${place}`);
+  }
+  // Admission questions say where admission happens and where the other centres fit in.
+  const admission = buildClinicFactsNote(findClinicTopics("can i get admitted at tulasi"));
+  for (const place of ["Gurugram", "Chhatarpur", "Hauz Khas", "Noida"]) assert.match(admission, new RegExp(place), place);
+});
+
+test("the admission guide reply mentions every centre", async () => {
+  const { handleAdmissionGuideTurn, ADMISSION_START } = await import("../lib/admissionGuide.js");
+  const session = {};
+  handleAdmissionGuideTurn(session, ADMISSION_START);
+  const { reply } = handleAdmissionGuideTurn(session, "A doctor advised admission");
+  for (const place of ["Gurugram", "Chhatarpur", "Hauz Khas", "Noida"]) assert.match(reply, new RegExp(place), place);
+});
