@@ -34,15 +34,26 @@ export function getApiKey() {
 // let the model chain below try the next model.
 const REQUEST_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 30000;
 
-// GROQ_API_KEY first; GROQ_API_KEY_2 (optional) takes over for a model
-// once the first key's limits for it are used up.
-function getClients() {
+const openAi = (apiKey, baseURL) => new OpenAI({ apiKey, baseURL, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+
+/**
+ * Every (model, key) pair to try, best first. OpenRouter leads when
+ * OPENROUTER_API_KEY is set; Groq follows, each of its models tried on both
+ * keys before dropping to a smaller one.
+ */
+function getAttempts() {
   if (!clients) {
-    const keys = [getApiKey(), process.env.GROQ_API_KEY_2?.trim()].filter(Boolean);
-    if (!keys.length) {
+    const groqKeys = [getApiKey(), process.env.GROQ_API_KEY_2?.trim()].filter(Boolean);
+    const routerKey = process.env.OPENROUTER_API_KEY?.trim();
+    if (!groqKeys.length && !routerKey) {
       throw new Error("GROQ_API_KEY is not set. Add it to server/.env (or the host's environment settings).");
     }
-    clients = keys.map((apiKey) => new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1", timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 }));
+    const groqApis = groqKeys.map((k) => openAi(k, "https://api.groq.com/openai/v1"));
+    const router = routerKey ? openAi(routerKey, "https://openrouter.ai/api/v1") : null;
+    clients = [
+      ...(router ? OPENROUTER_MODELS.map((model) => ({ model, api: router, label: `openrouter/${model}` })) : []),
+      ...MODEL_CHAIN.flatMap((model) => groqApis.map((api, i) => ({ model, api, label: `groq/${model} (key ${i + 1})` }))),
+    ];
   }
   return clients;
 }
@@ -52,6 +63,14 @@ function getClients() {
 // (comma-separated) so this can be tuned per deployment without a code
 // change. Groq's free tier applies rate limits per model, so falling back
 // to a different model is usually worth trying before giving up.
+// Tried before Groq when OPENROUTER_API_KEY is set. These are large
+// reasoning models, so reasoning is turned off below: a chat reply that
+// takes ten seconds feels broken.
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ?? "nvidia/nemotron-3-ultra-550b-a55b:free")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
+
 const MODEL_CHAIN = [
   process.env.GROQ_MODEL || "openai/gpt-oss-120b",
   ...(process.env.GROQ_MODEL_FALLBACKS || "openai/gpt-oss-20b,qwen/qwen3.8-27b")
@@ -148,7 +167,7 @@ function getErrorStatus(err) {
 export async function streamReply({ history, message, onChunk, abortSignal, extraContext, turnNote }) {
   let ai;
   try {
-    ai = getClients();
+    ai = getAttempts();
   } catch (err) {
     // A missing key is a deployment misconfiguration, not a reason to take
     // the process down (which would also wipe every in-memory session) —
@@ -163,9 +182,9 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
   let waitedMs = 0;
 
   // Best model on every key before dropping to a smaller model.
-  const attempts = MODEL_CHAIN.flatMap((model) => ai.map((api, key) => ({ model, api, key })));
+  const attempts = ai;
   for (let i = 0; i < attempts.length; i++) {
-    const { model, api, key } = attempts[i];
+    const { model, api, label } = attempts[i];
     const isLastModel = i === attempts.length - 1;
 
     if (abortSignal?.aborted) return { ok: false, aborted: true, text: "" };
@@ -173,7 +192,15 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
     let full = "";
     try {
       const stream = await api.chat.completions.create(
-        { model, messages, stream: true, temperature: TEMPERATURE, max_completion_tokens: MAX_COMPLETION_TOKENS },
+        {
+          model,
+          messages,
+          stream: true,
+          temperature: TEMPERATURE,
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+          // OpenRouter-only, ignored by Groq: skip the hidden thinking pass.
+          ...(label.startsWith("openrouter/") && { reasoning: { enabled: false } }),
+        },
         { signal: abortSignal }
       );
 
@@ -208,8 +235,7 @@ export async function streamReply({ history, message, onChunk, abortSignal, extr
       }
 
       if (isRetryable(status) && !isLastModel) {
-        const next = attempts[i + 1];
-        console.warn(`Model "${model}" (key ${key + 1}) unavailable (${status}), trying "${next.model}" (key ${next.key + 1})`);
+        console.warn(`${label} unavailable (${status}), trying ${attempts[i + 1].label}`);
         continue;
       }
 
