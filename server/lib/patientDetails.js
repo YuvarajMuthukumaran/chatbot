@@ -40,8 +40,25 @@ export function extractPatientDetails(text) {
   const name = nameMatch ? cleanPersonName(nameMatch[1]) : null;
   const emailMatch = s.match(/[^\s@<>()[\],;:"]+@[^\s@<>()[\],;:"]+\.[a-z]{2,}/i);
   const email = emailMatch ? normalizeEmail(emailMatch[0]) : null;
-  return { name, phone, email };
+  return { name, phone, email, age: parseAge(s) };
 }
+
+// "32", "I'm 32", "age 32", "32 years old", "32 saal". Not a phone number, a
+// year, or a time ("at 10"), and nothing outside a plausible human age.
+const AGE_PHRASE =
+  /(?:\b(?:age|aged|umar|umra|vayasu|vayathu)\s*(?:is|=|:)?\s*|\b(?:i'?m|i am|he'?s|she'?s|he is|she is|they'?re)\s+)(\d{1,3})\b|\b(\d{1,3})\s*(?:years?|yrs?|y\/?o|saal|varsh)\b/i;
+
+/** The age mentioned in `text`, or null. Bare digits count only on their own. */
+export function parseAge(text) {
+  const s = String(text || "");
+  const m = s.match(AGE_PHRASE);
+  const bare = m ? null : s.trim().match(/^(\d{1,3})$/);
+  const n = Number((m && (m[1] || m[2])) ?? (bare && bare[1]));
+  return Number.isInteger(n) && n >= 1 && n <= 120 ? n : null;
+}
+
+/** Under 18s need a parent or guardian involved before the clinic sees them. */
+export const MINOR_AGE = 18;
 
 /** "meena.sharma@gmail.com" -> "m•••@gmail.com", for showing back in chat (dots,
  * not asterisks, which would break the Markdown bold around it). */

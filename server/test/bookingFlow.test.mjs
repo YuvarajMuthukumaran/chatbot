@@ -160,7 +160,7 @@ test("a concern nobody is tagged for falls back to the generalist", async () => 
 
 test("full booking: Indian time formats, name cleanup, an e-mailed code, and a confirmation step", async () => {
   const session = {};
-  const sent = await converse(session, ["book an appointment with dr pooja", "Tomorrow", "10.30", "my name is Priya Sharma", " Priya.Sharma@Gmail.com "]);
+  const sent = await converse(session, ["book an appointment with dr pooja", "Tomorrow", "10.30", "my name is Priya Sharma", "32", " Priya.Sharma@Gmail.com "]);
   assert.match(sent.reply, /emailed a 6-digit code to \*\*p•••@gmail\.com\*\*/);
   assert.ok(sent.quickReplies.includes("Resend code"));
 
@@ -182,7 +182,7 @@ test("full booking: Indian time formats, name cleanup, an e-mailed code, and a c
 
 test("a wrong code is refused, and a new one can be sent", async () => {
   const session = {};
-  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "priya@gmail.com"]);
+  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "32", "priya@gmail.com"]);
   const wrong = await converse(session, ["000000" === codeIn(sent.reply) ? "111111" : "000000"]);
   assert.match(wrong.reply, /doesn't match/);
   const resent = await converse(session, ["Resend code"]);
@@ -194,7 +194,7 @@ test("a wrong code is refused, and a new one can be sent", async () => {
 
 test("an address that isn't an email is asked for again", async () => {
   const session = {};
-  const result = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "9876543210"]);
+  const result = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "32", "9876543210"]);
   assert.match(result.reply, /doesn't look like an email/);
 });
 
@@ -236,7 +236,7 @@ test("past dates and dates beyond the booking window are refused", async () => {
 
 test("declining at the confirmation books nothing", async () => {
   const session = {};
-  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "priya@gmail.com"]);
+  const sent = await converse(session, ["book an appointment with dr pooja", "tomorrow", "10:00", "Priya Sharma", "32", "priya@gmail.com"]);
   await enterCode(session, sent.reply);
   const result = await converse(session, ["No, don't book"]);
   assert.match(result.reply, /haven't booked anything/);
@@ -247,8 +247,8 @@ test("a slot taken by someone else in the meantime is re-offered, not double-boo
   const first = {};
   const second = {};
   const steps = ["book an appointment with dr pooja", "tomorrow", "10:00"];
-  await enterCode(first, (await converse(first, [...steps, "Priya Sharma", "priya@gmail.com"])).reply);
-  await enterCode(second, (await converse(second, [...steps, "Ravi Kumar", "ravi@gmail.com"])).reply);
+  await enterCode(first, (await converse(first, [...steps, "Priya Sharma", "32", "priya@gmail.com"])).reply);
+  await enterCode(second, (await converse(second, [...steps, "Ravi Kumar", "41", "ravi@gmail.com"])).reply);
   await converse(first, ["yes"]);
   const result = await converse(second, ["yes"]);
   assert.match(result.reply, /that slot was just taken/);
@@ -387,7 +387,13 @@ test("a name and email given in the first message aren't asked for again, and 'y
   const sent = await converse(session, [
     "book an appointment with dr pooja sharma tomorrow at 10am for my mother her name is Sunita Devi and email is sunita.devi@gmail.com",
   ]);
-  assert.match(sent.reply, /emailed a 6-digit code to \*\*s•••@gmail\.com\*\*/);
+  // Name and email were given, so only the age is still missing.
+  assert.match(sent.reply, /how old is the patient/);
+  assert.doesNotMatch(sent.reply, /full name|email address/i);
+  const coded = await converse(session, ["64"]);
+  assert.match(coded.reply, /emailed a 6-digit code to \*\*s•••@gmail\.com\*\*/);
+  assert.doesNotMatch(coded.reply, /parent or guardian/, "an adult gets no guardian note");
+  sent.reply = coded.reply;
   const result = await enterCode(session, sent.reply);
   assert.match(result.reply, /Please confirm/);
   assert.match(result.reply, /Sunita Devi/);
@@ -427,4 +433,19 @@ test("a greeting mid-booking gets a friendly reminder, not 'I didn't catch that'
     assert.deepEqual(r.quickReplies, list.quickReplies, "same buttons as before");
   }
   assert.equal(session.booking.flow, "book", "still booking");
+});
+
+test("booking asks the patient's age, and flags under-18s", async () => {
+  const session = {};
+  await handleBookingTurn(session, "book an appointment with dr anu yadav");
+  await handleBookingTurn(session, "tomorrow");
+  const slots = await handleBookingTurn(session, "10:30 am");
+  assert.match(slots.reply, /full name/, "name first");
+  const asked = await handleBookingTurn(session, "Priya Sharma");
+  assert.match(asked.reply, /how old is the patient/);
+  assert.match((await handleBookingTurn(session, "banana")).reply, /age in years/);
+  const minor = await handleBookingTurn(session, "14");
+  assert.match(minor.reply, /parent or guardian needs to come along/);
+  assert.match(minor.reply, /email/i, "booking still continues");
+  assert.equal(session.booking.patientAge, 14);
 });

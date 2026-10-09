@@ -14,7 +14,7 @@ import { matchSpecialties, specialtyLabel, getGeneralistDoctor } from "./doctors
 import { checkBookableDate, BOOKING_WINDOW_DAYS, availableSlots as openSlotsFor } from "./slots.js";
 import { parseDate, parseTime, isDateWord } from "./dateParse.js";
 import { clinicToday, addDays, formatDate, formatTime, timeToMinutes } from "./clinicTime.js";
-import { cleanPersonName, extractPatientDetails, normalizeEmail, maskEmail } from "./patientDetails.js";
+import { cleanPersonName, extractPatientDetails, normalizeEmail, maskEmail, parseAge, MINOR_AGE } from "./patientDetails.js";
 import { issueOtp, verifyOtp } from "./authStore.js";
 import { sendLoginCodeEmail, sendBookingConfirmationEmail } from "./notify.js";
 import { limiters } from "./rateLimit.js";
@@ -52,6 +52,7 @@ function initState() {
     pendingDate: null,
     pendingTime: null,
     patientName: null,
+    patientAge: null,
     patientEmail: null,
     // The address a code was e-mailed to, and whether it's been confirmed.
     codeEmail: null,
@@ -520,6 +521,12 @@ async function askForDetails(state, lead = "", ctx = TURN_CTX.get(state) || {}) 
     state.stage = "awaiting_name";
     return say(`${lead}What's the patient's full name?`, [NEVER_MIND]);
   }
+  // The clinic needs the patient's age to route them to the right doctor,
+  // and a child can only be seen with a parent or guardian.
+  if (!state.patientAge) {
+    state.stage = "awaiting_age";
+    return say(`${lead}And how old is the patient?`, [NEVER_MIND]);
+  }
   if (!state.patientEmail) {
     state.stage = "awaiting_email";
     return say(`${lead}${ASK_EMAIL}`, [NEVER_MIND]);
@@ -605,6 +612,7 @@ async function handleBookFlow(state, message, ctx) {
       // don't ask again for what's already been given.
       const given = extractPatientDetails(message);
       if (given.name) state.patientName = given.name;
+      if (given.age) state.patientAge = given.age;
       if (given.email) state.patientEmail = given.email;
       return resolveDoctorCandidates(state, await attemptSearch(message, { session }), session);
     }
@@ -644,6 +652,19 @@ async function handleBookFlow(state, message, ctx) {
       return askForDetails(state, "", ctx);
     }
 
+    case "awaiting_age": {
+      const age = parseAge(message);
+      if (!age) return say("Just the patient's age in years, please (for example, 32).", [NEVER_MIND]);
+      state.patientAge = age;
+      // Said warmly, and booking continues either way: turning a worried
+      // parent or teenager away at this point would help no one.
+      const minorNote =
+        age < MINOR_AGE
+          ? `Thanks. For anyone under ${MINOR_AGE}, a parent or guardian needs to come along to the appointment. `
+          : "";
+      return askForDetails(state, minorNote, ctx);
+    }
+
     case "awaiting_email": {
       const email = normalizeEmail(extractPatientDetails(message).email || message);
       if (!email) return say("That doesn't look like an email address. Could you type it again? (for example, priya@gmail.com)", [NEVER_MIND]);
@@ -676,6 +697,7 @@ async function handleBookFlow(state, message, ctx) {
           doctorId: String(doctor._id),
           doctorName: doctor.name,
           patientName: state.patientName,
+          patientAge: state.patientAge,
           patientEmail: state.patientEmail,
           date: state.date,
           time: state.time,
