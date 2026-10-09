@@ -49,7 +49,7 @@ const TRANSPORT =
 // cover all of them: answering only about Gurugram misleads families in Delhi
 // and Noida.
 const ALL_CENTRES_RULE =
-  "Tulasi has three locations and you MUST name all of them whenever the question is about the hospital in general and doesn't name one city: Gurugram (Sector 64, the inpatient hospital), Delhi (Chhatarpur / Mehrauli residential centre and Hauz Khas OPD) and Noida (OPD clinic). Never describe only Gurugram. Narrow to one centre only if the person asked about that one specifically.";
+  "Tulasi has three locations and you MUST name all of them whenever the question is about the hospital in general and doesn't name one city: Gurugram (Sector 64, the inpatient hospital), Delhi (Chhatarpur / Mehrauli residential centre and Hauz Khas OPD) and Noida (OPD clinic, Sector 49). Never describe only Gurugram. Narrow to one centre only if the person asked about that one specifically.";
 
 export const CLINIC_TOPICS = [
   {
@@ -91,7 +91,7 @@ export const CLINIC_TOPICS = [
     facts: [
       "Main hospital: Tulasi Healthcare, Sector 64, Gurugram (Gurgaon), Haryana. A full psychiatric hospital and rehabilitation / de-addiction centre with about 120 beds, where admissions happen. (VN6, VN11, VN38, VN63, VN75)",
       "Delhi: a centre in Chhatarpur / Mehrauli (near Chhatarpur Metro), which also handles long-term residential care, and an OPD clinic near Hauz Khas Metro. (VN25, VN30, VN31, VN44, VN68, VN81)",
-      "Noida: Tulasi Healthcare Clinic, an OPD clinic in Noida. The street address and sector are not known here: never guess them, share this map link instead: https://share.google/N04yU0P51YoGghMpX",
+      "Noida: Tulasi Healthcare Clinic, an OPD clinic at 3rd Floor, Puma Building, BR/03, Sector 49, Noida, Uttar Pradesh 201304. Give this address exactly as written, and the map link too if they want directions: https://share.google/N04yU0P51YoGghMpX",
       "There are no branches in Jaipur or Dehradun. People from other cities can use online video consultations or travel to the nearest centre. (VN63, VN74, VN82, VN84)",
       ALL_CENTRES_RULE,
       "When asked where Tulasi is, or about any one city, still list every location briefly, then say which one they asked about.",
@@ -109,7 +109,7 @@ export const CLINIC_TOPICS = [
       "Inpatient stay at Gurugram includes the room, meals, psychiatrist and doctor visits, nursing, individual counselling, group therapy, and daily activities (yoga, gym, indoor and outdoor games) on a daily schedule. (VN1, VN8, VN42, VN54, VN63)",
       "There is a separate facility for female patients at the inpatient hospital. (VN8, VN27, VN84, VN96)",
       "Delhi: the Chhatarpur / Mehrauli centre (near Chhatarpur Metro) is for long-term residential care, in shared and single rooms. There is also an OPD clinic near Hauz Khas Metro for consultations. (VN25, VN30, VN31, VN44, VN68, VN81)",
-      "Noida: an OPD clinic for consultations. The street address is not known here, so never guess it.",
+      "Noida: Tulasi Healthcare Clinic, an OPD clinic for consultations, at 3rd Floor, Puma Building, BR/03, Sector 49, Noida, Uttar Pradesh 201304.",
       "Across the centres: consultations with psychiatrists and psychologists, counselling sessions, child and adolescent psychiatry, a de-addiction programme (alcohol, drugs, gambling, gaming), and online video consultations. (VN7, VN16, VN41, VN44, VN65, VN72)",
       "There is no ambulance of its own; a third-party ambulance service comes to the home with a doctor and nursing staff and the family pays that service directly. The hospital team shares its number on +91 8800000255. (VN11, VN43, VN48, VN58, VN85, VN95)",
       "Families can visit the Gurugram hospital first to see the rooms, food and activities and meet a doctor before deciding. (VN4, VN13, VN43, VN73, VN85)",

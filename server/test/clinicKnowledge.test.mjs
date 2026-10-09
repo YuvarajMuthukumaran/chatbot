@@ -170,3 +170,12 @@ test("the admission guide reply mentions every centre", async () => {
   const { reply } = handleAdmissionGuideTurn(session, "A doctor advised admission");
   for (const place of ["Gurugram", "Chhatarpur", "Hauz Khas", "Noida"]) assert.match(reply, new RegExp(place), place);
 });
+
+test("the Noida clinic address is given exactly, in both location and facilities answers", () => {
+  const address = "3rd Floor, Puma Building, BR/03, Sector 49, Noida, Uttar Pradesh 201304";
+  for (const message of ["where is your noida clinic", "I need to know what facilities are available"]) {
+    const note = buildClinicFactsNote(findClinicTopics(message));
+    assert.ok(note.includes(address), message);
+    assert.doesNotMatch(note, /never guess it|not known here/i, message);
+  }
+});
