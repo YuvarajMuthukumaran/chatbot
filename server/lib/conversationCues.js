@@ -80,21 +80,62 @@ const REFERRAL = /\b(?:specialists?|psychiatrists?|psychologists?|therapists?|co
  * specialist mention (in the last three); otherwise null.
  * @param {Array<{role: string, text: string, private?: boolean}>} history
  */
-export function repetitionNote(history) {
-  const replies = history.filter((t) => t.role === "model" && !t.private).slice(-3);
+// Someone asking for a technique, or saying an earlier one helped. Only then
+// is offering another one responsive rather than a brush-off.
+const WANTS_TECHNIQUE =
+  /\b(?:what (?:can|should|do) i do|how do i (?:cope|calm|relax|handle|deal)|any (?:tips?|advice|exercises?|techniques?)|help me (?:calm|relax)|give me (?:something|a tip)|that helped|it helped|tried (?:it|that)|felt better|teach me|show me)\b/i;
+
+// Distress that keeps coming back, in the person's own words.
+const DISTRESS =
+  /\b(?:anxious|anxiety|panic|depress\w*|sad|low|down|cry\w*|hopeless|worthless|empty|numb|scared|afraid|worried|stress\w*|overwhelm\w*|exhaust\w*|tired|can'?t sleep|insomnia|angry|lonely|alone|hurt\w*|struggl\w*|not ok|not okay|nothing helps|getting worse)\b/i;
+
+// Enough back-and-forth that a gentle "a specialist could help" is support,
+// not a brush-off — and long past the point where silence is unhelpful.
+const REFERRAL_DUE_TURNS = 5;
+
+/**
+ * Reminders not to repeat a technique or specialist mention — and, when
+ * someone has been describing distress for a while with no mention of real
+ * help yet, a reminder to offer it. Null when there's nothing to say.
+ * @param {Array<{role: string, text: string, private?: boolean}>} history
+ * @param {string} [message] - the message being answered
+ */
+export function repetitionNote(history, message = "") {
+  const shared = history.filter((t) => !t.private);
+  const allReplies = shared.filter((t) => t.role === "model");
+  const replies = allReplies.slice(-3);
   if (!replies.length) return null;
   const notes = [];
-  const allReplies = history.filter((t) => t.role === "model" && !t.private);
-  if (allReplies.length < 3) {
-    notes.push("It's early in the conversation. Don't offer any exercise, technique, breathing or grounding tip yet unless they ask for one: listen and understand first.");
-  } else if (TECHNIQUE.test(replies[replies.length - 1].text)) {
-    notes.push("Your last reply already offered an exercise or technique. Don't offer any technique, breathing or grounding exercise in this reply. Just respond to what they said.");
+
+  // Techniques: offer one only when asked, or when they said an earlier one
+  // helped. Unprompted breathing tips turn after turn read as a brush-off —
+  // worse when the person has just said nothing in particular is wrong.
+  if (!WANTS_TECHNIQUE.test(message)) {
+    notes.push(
+      allReplies.length < 3
+        ? "It's early in the conversation. Don't offer any exercise, technique, breathing or grounding tip yet: listen and understand first."
+        : "Don't offer a breathing exercise, grounding exercise or any other technique in this reply — they haven't asked for one. Repeating tips they didn't ask for reads as brushing them off. Respond to what they actually said."
+    );
   }
+
   if (/\?\s*$/.test(replies[replies.length - 1].text)) {
     notes.push("Your last reply ended with a question. Don't ask one in this reply: respond to what they shared and end on a statement (something you noticed, or reassurance), not a goodbye.");
   }
+
+  // Short follow-ups ("no", "everytime") carry the same distress as the
+  // message that started it, so once they've named it twice, count the
+  // whole exchange rather than only the messages that repeat the word.
+  const userTurns = shared.filter((t) => t.role === "user");
+  const named = userTurns.filter((t) => DISTRESS.test(t.text)).length;
+  const distressTurns = named ? userTurns.length : 0;
   if (replies.some((t) => REFERRAL.test(t.text))) {
     notes.push("You've recently mentioned a specialist or professional help. Don't mention specialists, doctors, booking or professional help in this reply unless they ask.");
+  } else if (distressTurns >= REFERRAL_DUE_TURNS && !allReplies.some((t) => REFERRAL.test(t.text))) {
+    // They've been describing this for a while and you've never once said a
+    // professional could help. Saying nothing isn't neutral here.
+    notes.push(
+      "They have been describing this distress for several messages now and you have never suggested real help. In this reply, gently say that what they're describing is worth talking through with a professional, and that a Tulasi specialist can help — warmly, in a sentence, not as a brush-off."
+    );
   }
   return notes.length ? notes.join(" ") : null;
 }

@@ -947,7 +947,11 @@ const OFFERED_BOOKING = /\b(?:book|booking|appointment|arrange|connect you|sched
 function acceptsBookingOffer(session, message) {
   if (!session || !AFFIRMATION.test(message)) return false;
   const lastReply = [...(session.history || [])].reverse().find((t) => t.role === "model");
-  return !!lastReply && !lastReply.private && (OFFERED_BOOKING.test(lastReply.text) || (session.doctorsShownAtTurn != null && session.conversationTurns - session.doctorsShownAtTurn <= 1));
+  if (!lastReply || lastReply.private) return false;
+  // "...what does it feel like?" then "yeah" answers that question, not a
+  // booking offer — even if doctor cards happen to be on screen.
+  if (/\?\s*$/.test(lastReply.text) && !OFFERED_BOOKING.test(lastReply.text)) return false;
+  return OFFERED_BOOKING.test(lastReply.text) || (session.doctorsShownAtTurn != null && session.conversationTurns - session.doctorsShownAtTurn <= 1);
 }
 
 /** Drops any in-progress booking flow (e.g. on crisis language or "never mind"). */

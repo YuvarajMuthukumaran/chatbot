@@ -209,7 +209,7 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
           offScopeNote(message),
           selfDiagnosisNote(message),
           // No technique or specialist mention again and again.
-          repetitionNote(session.history),
+          repetitionNote(session.history, message),
         ]
           .filter(Boolean)
           .join("\n\n") || undefined,

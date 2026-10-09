@@ -154,18 +154,31 @@ test("code/homework requests get a decline reminder, venting about them doesn't"
   assert.strictEqual(offScopeNote("my code keeps failing and I feel useless"), null);
 });
 
-test("a technique or specialist mention isn't repeated reply after reply", async () => {
+test("techniques aren't pushed unasked, and real help isn't withheld forever", async () => {
   const { repetitionNote } = await import("../lib/conversationCues.js");
   const turn = (role, text) => ({ role, text });
-  const earlier = [turn("model", "Hey."), turn("model", "That's a lot.")];
-  // The first few replies: no exercises yet at all.
-  assert.match(repetitionNote([turn("user", "hi"), turn("model", "Hey, good to see you.")]), /early in the conversation/);
-  assert.strictEqual(repetitionNote([...earlier, turn("model", "That sounds exhausting.")]), null);
-  assert.match(repetitionNote([...earlier, turn("model", "Try this: breathe in for 4, out for 4.")]), /Don't offer any technique/);
-  assert.match(repetitionNote([...earlier, turn("model", "Take a deep breath or a quick stretch.")]), /Don't offer any technique/);
-  assert.match(repetitionNote([turn("model", "One of our specialists could help."), turn("model", "That's hard."), turn("model", "Makes sense.")]), /Don't mention specialists/);
+  const earlier = [turn("model", "Hey."), turn("model", "That's a lot."), turn("model", "That sounds exhausting.")];
+
+  // No unprompted exercises, however many replies in.
+  assert.match(repetitionNote([turn("user", "hi"), turn("model", "Hey.")], "i feel low"), /early in the conversation/);
+  assert.match(repetitionNote(earlier, "nothing specific, just everything"), /Don't offer a breathing exercise/);
+  // Unless they ask, or say an earlier one helped.
+  assert.doesNotMatch(repetitionNote(earlier, "what can i do about it") || "", /Don't offer a breathing/);
+  assert.doesNotMatch(repetitionNote(earlier, "that helped, anything else?") || "", /Don't offer a breathing/);
+
+  assert.match(repetitionNote([turn("model", "One of our specialists could help."), turn("model", "That's hard."), turn("model", "Makes sense.")], "ok"), /Don't mention specialists/);
+
+  // Five messages of distress and still no mention of real help: say so.
+  const distressed = [];
+  for (const t of ["i feel anxious", "anxious all day", "nothing helps", "i feel so low", "still anxious"]) {
+    distressed.push(turn("user", t), turn("model", "That sounds hard."));
+  }
+  assert.match(repetitionNote(distressed, "anything everytime"), /never suggested real help/);
+  // ...but not once it already has.
+  assert.doesNotMatch(repetitionNote([...distressed, turn("model", "A psychiatrist could help with this.")], "ok") || "", /never suggested real help/);
+
   // Private booking/records turns don't count.
-  assert.strictEqual(repetitionNote([{ role: "model", text: "Book an appointment with a psychiatrist", private: true }]), null);
+  assert.strictEqual(repetitionNote([{ role: "model", text: "Book an appointment with a psychiatrist", private: true }], "hi"), null);
 });
 
 test("frustration aimed at the bot keeps the thread instead of restarting", async () => {

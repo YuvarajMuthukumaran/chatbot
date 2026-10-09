@@ -201,7 +201,7 @@ const HELP_SEEKING_PATTERNS = [
 
 // Something ongoing, worsening, or past coping. Enough on its own.
 const SUSTAINED_CONCERN_PATTERNS = [
-  /\bcan'?t (?:take|handle|cope|stop|deal with)\b|\b(?:constantly|always|every day|every night|all the time)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do anymore/i,
+  /\bcan'?t (?:take|handle|cope|stop|deal with)\b|\b(?:constantly|always|every ?time|every day|every single day|every night|all the time|whole day|all day|throughout the day|non-?stop)\b|getting worse|won'?t (?:go away|stop)|\bfor (?:weeks|months|years)\b|desperate|breaking down|falling apart|too much (?:for me|to handle)|don'?t know what to do anymore/i,
   /बर्दाश्त नहीं|हमेशा|हर समय|लगातार/, // Hindi
   /தாங்க முடியல|எப்போதும்|தொடர்ந்து/, // Tamil
   /భరించలేక|ఎప్పుడూ|నిరంతరం/, // Telugu
