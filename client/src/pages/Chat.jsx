@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatBubble from "../components/ChatBubble.jsx";
@@ -10,6 +10,10 @@ import { useChat } from "../lib/chatStore.jsx";
 // Server-side limit (routes/chat.js) — enforced here too so nobody types a
 // long message only to have it rejected.
 const MAX_MESSAGE_CHARS = 2000;
+
+// Long enough to read the transcription back and stop it, short enough that
+// nobody sits waiting on a message they think they already sent.
+const VOICE_SEND_SECONDS = 4;
 
 // Shown under the greeting until the first message: a gentle way in, and a
 // hint that booking happens right here in the chat.
@@ -24,6 +28,9 @@ export default function Chat() {
   const { messages, sessionId, streaming, connectionError, lastFailedText, send, retry, newChat } = useChat();
   const [input, setInput] = useState("");
   const [voiceError, setVoiceError] = useState(null);
+  // Seconds left before a just-dictated message sends itself, or null.
+  const [voiceCountdown, setVoiceCountdown] = useState(null);
+  const voiceTimerRef = useRef(null);
   const [canUseVoice] = useState(voiceSupported);
   const [announcement, setAnnouncement] = useState("");
   const bottomRef = useRef(null);
@@ -96,8 +103,33 @@ export default function Chat() {
     send(autoSend);
   }, [autoSend, sessionId, streaming, send, navigate, location.pathname, location.key]);
 
+  // Someone who has just spoken has said their piece; leaving the words
+  // sitting in the box means they wait for a reply that never comes. So it
+  // sends itself shortly, with a visible countdown they can stop to edit.
+  const stopVoiceCountdown = useCallback(() => {
+    clearInterval(voiceTimerRef.current);
+    voiceTimerRef.current = null;
+    setVoiceCountdown(null);
+  }, []);
+
+  useEffect(() => stopVoiceCountdown, [stopVoiceCountdown]);
+
+  const startVoiceCountdown = (text) => {
+    stopVoiceCountdown();
+    setVoiceCountdown(VOICE_SEND_SECONDS);
+    voiceTimerRef.current = setInterval(() => {
+      setVoiceCountdown((left) => {
+        if (left > 1) return left - 1;
+        stopVoiceCountdown();
+        submit(text);
+        return null;
+      });
+    }, 1000);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    stopVoiceCountdown();
     submit(input);
   };
 
@@ -203,6 +235,18 @@ export default function Chat() {
           </div>
         )}
 
+        {voiceCountdown !== null && (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-blue-100 bg-blue-50/70 px-4 py-2 text-sm text-blue-900">
+            <span>Sending in {voiceCountdown}…</span>
+            <button
+              type="button"
+              onClick={stopVoiceCountdown}
+              className="shrink-0 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
+              Edit first
+            </button>
+          </div>
+        )}
         {voiceError && (
           <p role="status" className="shrink-0 px-4 pt-2 text-xs text-slate-500">
             {voiceError}
@@ -219,8 +263,12 @@ export default function Chat() {
             id="chat-input"
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              stopVoiceCountdown();
+              setInput(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
+            onFocus={stopVoiceCountdown}
             rows={1}
             maxLength={MAX_MESSAGE_CHARS}
             placeholder={sessionId ? "What's on your mind…" : "Getting ready…"}
@@ -232,8 +280,9 @@ export default function Chat() {
               disabled={!sessionId || streaming}
               onError={setVoiceError}
               onText={(text) => {
-                setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text).slice(0, MAX_MESSAGE_CHARS));
-                inputRef.current?.focus();
+                const next = (input.trim() ? `${input.trim()} ${text}` : text).slice(0, MAX_MESSAGE_CHARS);
+                setInput(next);
+                startVoiceCountdown(next);
               }}
             />
           )}
