@@ -15,9 +15,12 @@ import { getApiKey, getLastLlmError } from "./lib/llmClient.js";
 
 export const app = express();
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app,https://www.goravgupta.com,https://goravgupta.com,https://ggwebsite-ivory.vercel.app,http://127.0.0.1:4174,http://localhost:4174")
-  .split(",")
-  .map((o) => o.trim());
+// CLIENT_ORIGIN lists the other sites; goravgupta.com is always allowed (its Ask the Doctor chat calls this API from the browser).
+const GORAV_ORIGINS = ["https://www.goravgupta.com", "https://goravgupta.com", "https://ggwebsite-ivory.vercel.app"];
+const allowedOrigins = [
+  ...(process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app").split(",").map((o) => o.trim()).filter(Boolean),
+  ...GORAV_ORIGINS,
+];
 
 // Behind a host's load balancer (Render, etc.) every request would otherwise
 // appear to come from the proxy's own address, putting all users into one
