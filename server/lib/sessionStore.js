@@ -45,6 +45,9 @@ export function sanitizeHistory(history) {
  */
 /** @param {{history?: object[], channel?: "website"}} [options] - `channel: "website"`
  * marks a session started from the public website widget (see turnRouter.js). */
+/** True for the public-website chats: tulasihealthcare.com ("website") and goravgupta.com ("gorav"). */
+export const isWebsiteChannel = (session) => session?.channel === "website" || session?.channel === "gorav";
+
 export function createSession({ history, channel } = {}) {
   while (sessions.size >= MAX_SESSIONS) {
     sessions.delete(sessions.keys().next().value);
@@ -54,7 +57,7 @@ export function createSession({ history, channel } = {}) {
   sessions.set(id, {
     history: sanitizeHistory(history),
     profile: {},
-    channel: channel === "website" ? "website" : undefined,
+    channel: channel === "website" || channel === "gorav" ? channel : undefined,
     createdAt: now,
     lastActiveAt: now,
   });
@@ -100,4 +103,18 @@ export function setProfile(id, profile) {
 
 export function deleteSession(id) {
   sessions.delete(id);
+}
+
+/**
+ * Wipes a session back to a blank conversation (history, profile and every
+ * flow/booking/screening state) while keeping the same id and channel, so a
+ * client that doesn't open a fresh session still gets a clean slate.
+ */
+export function resetSession(id) {
+  const session = sessions.get(id);
+  if (!session) return false;
+  const { channel, createdAt } = session;
+  for (const key of Object.keys(session)) delete session[key];
+  Object.assign(session, { history: [], profile: {}, channel, createdAt, lastActiveAt: Date.now() });
+  return true;
 }

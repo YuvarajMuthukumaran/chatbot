@@ -66,6 +66,10 @@ export function ChatProvider({ children }) {
   messagesRef.current = messages;
   const streamingRef = useRef(streaming);
   streamingRef.current = streaming;
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+  // Set below; lets runSend (which never re-creates) trigger a chat reset.
+  const resetChatRef = useRef(() => {});
 
   useEffect(() => {
     if (!sessionId) return;
@@ -220,6 +224,9 @@ export function ChatProvider({ children }) {
       sessionId: activeSessionId,
       message: text,
       onChunk: (chunk, event) => {
+        // "reset chat": the confirmation text isn't shown; the chat is
+        // replaced by a fresh one in onDone.
+        if (event?.reset) return;
         if (event?.error) {
           // The reply failed partway: show the error on its own instead of
           // tacking it onto half a sentence.
@@ -242,6 +249,16 @@ export function ChatProvider({ children }) {
         }
       },
       onDone: (meta) => {
+        if (meta?.reset) {
+          cancelled = true;
+          if (revealTimer) {
+            clearInterval(revealTimer);
+            revealTimer = null;
+          }
+          setStreaming(false);
+          resetChatRef.current();
+          return;
+        }
         doneMeta = meta || {};
         if (!checkCompletion()) ensureTimer();
       },
@@ -312,9 +329,8 @@ export function ChatProvider({ children }) {
   }, [lastFailedText, streaming, sessionId, runSend]);
 
   /** Clears the conversation here and on the server, and starts afresh. */
-  const newChat = useCallback(async () => {
-    if (streaming) return;
-    const oldId = sessionId;
+  const resetConversation = useCallback(async () => {
+    const oldId = sessionIdRef.current;
     remove(TRANSCRIPT_KEY);
     setMessages([greetingMessage()]);
     setMood("neutral");
@@ -322,7 +338,13 @@ export function ChatProvider({ children }) {
     setLastFailedText(null);
     setSessionId(null); // triggers a fresh session via the effect above
     await endSession(oldId);
-  }, [sessionId, streaming]);
+  }, []);
+  resetChatRef.current = resetConversation;
+
+  const newChat = useCallback(async () => {
+    if (streaming) return;
+    await resetConversation();
+  }, [streaming, resetConversation]);
 
   // A tab left open for a day: start afresh when the person comes back to it.
   useEffect(() => {

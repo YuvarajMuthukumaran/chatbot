@@ -23,7 +23,7 @@ router.post("/session", limitByIp(limiters.session), (req, res) => {
   if (name || mood != null) {
     setProfile(id, { name, mood });
   }
-  res.json({ sessionId: id, crisisResources: getCrisisResources(region) });
+  res.json({ sessionId: id, channel: channel === "gorav" ? "gorav" : undefined, crisisResources: getCrisisResources(region) });
 });
 
 router.delete("/session/:id", (req, res) => {

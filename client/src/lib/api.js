@@ -70,7 +70,7 @@ export async function endSession(sessionId) {
  * @param {(text: string, event: object) => void} args.onChunk - `event` is
  *   the whole server event, so flags like `crisis` are known the moment the
  *   text arrives (a crisis reply is shown at once, not typed out).
- * @param {(info: {crisis?: boolean, error?: boolean, functional?: boolean, sensitive?: boolean, doctors?: object[], quickReplies?: string[]}) => void} args.onDone
+ * @param {(info: {crisis?: boolean, error?: boolean, functional?: boolean, sensitive?: boolean, reset?: boolean, doctors?: object[], quickReplies?: string[]}) => void} args.onDone
  * @param {(err: Error) => void} args.onError
  */
 export async function sendMessageStream({ sessionId, message, onChunk, onDone, onError }) {
@@ -119,6 +119,7 @@ export async function sendMessageStream({ sessionId, message, onChunk, onDone, o
           if (parsed.error) meta.error = true;
           if (parsed.functional) meta.functional = true;
           if (parsed.sensitive) meta.sensitive = true;
+          if (parsed.reset) meta.reset = true;
           if (parsed.doctors) meta.doctors = parsed.doctors;
           if (parsed.quickReplies) meta.quickReplies = parsed.quickReplies;
           if (parsed.medicines) meta.medicines = parsed.medicines;

@@ -6,6 +6,8 @@
 // Kept separate from the HTTP/SSE plumbing in routes/chat.js so the whole
 // pipeline can be exercised directly in tests.
 import { detectCrisis } from "./crisisDetection.js";
+import { detectResetIntent } from "./resetIntent.js";
+import { resetSession, isWebsiteChannel } from "./sessionStore.js";
 import { buildCrisisReply } from "./crisisTemplate.js";
 import { classifyEscape } from "./conversationEscape.js";
 import { GREETING_ONLY } from "./conversationCues.js";
@@ -25,6 +27,11 @@ const STOPPED = {
   view: "No problem, I've stopped there.",
   hms: "No problem, I've stopped there.",
   assessment: "No problem, I've stopped the questions.",
+};
+
+const GORAV_REPLIES = {
+  book: "I'd be glad to help you see Dr. Gupta. To keep your details private, appointments are requested on the callback form rather than in this chat. Tap **Request a callback** below; it only takes a minute. If it's urgent, you can also call +91 88000 00255.",
+  portal: "For your privacy, I can't look up records in this chat. Please call +91 88000 00255 and the team will help.",
 };
 
 const WEBSITE_REPLIES = {
@@ -78,6 +85,15 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
     return { handled: true, crisis: true, reply: buildCrisisReply(region, crisisLang, message) };
   }
 
+  // "reset chat" / "new chat": wipe this conversation and tell the client to
+  // open a fresh one. After crisis detection (safety first), before the flows
+  // so it also works mid-booking or mid-screening.
+  if (detectResetIntent(message)) {
+    if (ctx.sessionId) resetSession(ctx.sessionId);
+    else abandonFlows(session);
+    return { handled: true, reset: true, reply: "Done — I've cleared this chat. Starting a fresh conversation. 🌱 What's on your mind?" };
+  }
+
   // Safety net: a mid-flow session captures every message it receives,
   // including ones that have nothing to do with it. Genuine distress hands
   // the message to the conversation; an explicit "never mind" gets a plain
@@ -120,12 +136,13 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
 
   // Website widget: no names, phone numbers or records are collected in chat.
   // Booking goes to the secure booking form and records to the patient portal.
-  if (session.channel === "website") {
+  if (isWebsiteChannel(session)) {
+    const replies = session.channel === "gorav" ? GORAV_REPLIES : WEBSITE_REPLIES;
     if (detectHmsIntent(message)) {
-      return { handled: true, functional: true, action: "portal", reply: WEBSITE_REPLIES.portal };
+      return { handled: true, functional: true, action: "portal", reply: replies.portal };
     }
     if (detectBookingIntent(message)) {
-      return { handled: true, functional: true, action: "book", reply: WEBSITE_REPLIES.book };
+      return { handled: true, functional: true, action: "book", reply: replies.book };
     }
   }
 
@@ -134,13 +151,13 @@ export async function handleDeterministicTurn(session, message, ctx = {}) {
   // never sees or rephrases real medical data.
   // In-chat screenings ("I think I have OCD", "I feel dizzy"). Not on the
   // website widget, which mustn't collect medical history in chat.
-  if (session.channel !== "website") {
+  if (!isWebsiteChannel(session)) {
     const assessmentResult = await handleAssessmentTurn(session, message);
     if (assessmentResult.handled) return guardAgainstLoops(session, { ...assessmentResult, functional: true });
   }
 
   // Admission enquiry chips ("A doctor advised admission", …).
-  if (session.channel !== "website") {
+  if (!isWebsiteChannel(session)) {
     const admissionResult = handleAdmissionGuideTurn(session, message);
     if (admissionResult.handled) return guardAgainstLoops(session, admissionResult);
   }

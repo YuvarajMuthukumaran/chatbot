@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSession, appendTurn } from "../lib/sessionStore.js";
+import { getSession, appendTurn, isWebsiteChannel } from "../lib/sessionStore.js";
 import { streamReply } from "../lib/llmClient.js";
 import {
   matchSpecialties,
@@ -37,6 +37,16 @@ const WEBSITE_NOTE = [
   "For appointments, tell them to use the Book Appointment button (the booking form at /book-appointment/). Don't try to book in chat.",
   "Never diagnose, and never suggest or comment on medicines, doses, or stopping medication: say a psychiatrist should advise on that.",
   "Only state facts about Tulasi Healthcare's doctors, services and locations that you have been given; if you don't know, say so and offer the phone number +91 8800000255.",
+].join(" ");
+
+// goravgupta.com. People see the chat titled "Dr. Gorav Gupta"; it is his AI assistant, never the doctor himself.
+const GORAV_NOTE = [
+  "You are running in the Ask the Doctor chat on www.goravgupta.com, the website of Dr. Gorav Gupta, a senior consultant psychiatrist in New Delhi and Gurugram (Tulasi Healthcare).",
+  "For this chat ignore the name \"Tulasi\": people see the chat titled \"Dr. Gorav Gupta\". You are Dr. Gorav Gupta's AI assistant. Speak warmly and plainly, in the first person for yourself, and say \"Dr. Gupta\" when you mean him. Never claim to be the doctor himself or to be a human.",
+  "Answer general questions on mental health, addiction and treatment, and on how a consultation works, in simple words. For anything personal or medical, say Dr. Gupta or a psychiatrist needs to assess it.",
+  "Never ask for, or repeat back, the person's name, phone number, age, address, or medical history. For appointments point them to the callback form at /contactus/#book or the number +91 88000 00255. Don't try to book in chat.",
+  "Never diagnose, and never suggest or comment on medicines, doses, or stopping medication.",
+  "Only state facts about the clinics and fees that you have been given; if you don't know, say so and offer +91 88000 00255. Consultations are online and at New Delhi and Gurugram.",
 ].join(" ");
 
 // One in-flight model request per session: if a new message arrives before
@@ -96,7 +106,13 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
   try {
     // Crisis detection, stuck-flow escapes, and the HMS/booking flows —
     // everything decided in plain code before any model call.
-    const det = await handleDeterministicTurn(session, message, { ip: req.ip });
+    const det = await handleDeterministicTurn(session, message, { ip: req.ip, sessionId });
+    if (det.handled && det.reset) {
+      // The session was wiped inside the router; nothing is stored, and
+      // `reset: true` tells the client to open a new chat window.
+      send({ text: det.reply, reset: true });
+      return finish();
+    }
     if (det.handled) {
       // Booking/records turns can hold names, numbers, and medical data, so
       // they're stored private: kept for the session, never replayed to the
@@ -178,17 +194,17 @@ router.post("/chat", limitByIp(limiters.chat), async (req, res) => {
       : buildDoctorFollowUpNote(message, session.lastRecommendedDoctors);
     const clinicNote = buildClinicFactsNote(clinicTopics);
     // Asking about admission: offer the guided next step under the reply.
-    const admissionChips = session.channel !== "website" && clinicTopics.some((t) => t.id === "admission");
+    const admissionChips = !isWebsiteChannel(session) && clinicTopics.some((t) => t.id === "admission");
     // Medicine cards. Not on the website widget, which has no guide pages.
-    const tools = session.channel === "website" ? { medicines: [] } : findMedicineCards(message);
+    const tools = isWebsiteChannel(session) ? { medicines: [] } : findMedicineCards(message);
     // Wondering about a condition ("I don't know if it's depression"): a
     // button under the reply starts the screening.
-    const offer = session.channel === "website" ? null : detectAssessmentOffer(message);
+    const offer = isWebsiteChannel(session) ? null : detectAssessmentOffer(message);
     const offerNote = offer
       ? `A button labelled "${OFFER_LABELS[offer]}" is shown under your reply; tapping it starts a short screening in this chat. You can mention it in a few words. Never ask them to type a special phrase, and never say you can't run it.`
       : null;
     const extraContext =
-      [session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note, offerNote].filter(Boolean).join("\n\n") || undefined;
+      [session.channel === "gorav" ? GORAV_NOTE : session.channel === "website" ? WEBSITE_NOTE : null, clinicNote, doctorNote, tools.note, offerNote].filter(Boolean).join("\n\n") || undefined;
 
     const result = await streamReply({
       history: session.history,

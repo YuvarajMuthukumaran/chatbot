@@ -15,7 +15,7 @@ import { getApiKey, getLastLlmError } from "./lib/llmClient.js";
 
 export const app = express();
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://chatbot-tulasi.vercel.app,https://www.goravgupta.com,https://goravgupta.com,https://ggwebsite-ivory.vercel.app,http://127.0.0.1:4174,http://localhost:4174")
   .split(",")
   .map((o) => o.trim());
 
